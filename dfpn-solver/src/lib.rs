@@ -1,5 +1,7 @@
-pub fn dfpn() -> String {
-    String::from("dfpn")
+use csa::Position;
+
+pub fn solve(position: &Position) -> String {
+    format!("solve {:?}", position)
 }
 
 #[cfg(test)]

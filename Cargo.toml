@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 dfpn-solver = { path = "./dfpn-solver" }
+csa = "0.6"
+clap = "2.33.3"
