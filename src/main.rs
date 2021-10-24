@@ -1,3 +1,5 @@
+use dfpn_solver::dfpn;
+
 fn main() {
-    println!("Hello, world!");
+    println!("Hello, {}!", dfpn());
 }

@@ -3,5 +3,12 @@
 version = 3
 
 [[package]]
+name = "dfpn-solver"
+version = "0.1.0"
+
+[[package]]
 name = "tsumeshogi-solver"
 version = "0.1.0"
+dependencies = [
+ "dfpn-solver",
+]
