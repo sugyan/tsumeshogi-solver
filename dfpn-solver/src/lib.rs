@@ -1,7 +1,10 @@
-use csa::Position;
+use shogi::bitboard::Factory;
+use shogi::Position;
 
-pub fn solve(position: &Position) -> String {
-    format!("solve {:?}", position)
+pub fn solve(pos: &Position) -> String {
+    Factory::init();
+    // TODO
+    format!("solve {}", pos.to_sfen())
 }
 
 #[cfg(test)]

@@ -1,6 +1,8 @@
 use clap::{App, Arg};
 use csa::parse_csa;
 use dfpn_solver::solve;
+use shogi::Position;
+use shogi_converter::Record;
 use std::{fs::File, io::Read};
 
 fn main() -> Result<(), std::io::Error> {
@@ -17,12 +19,11 @@ fn main() -> Result<(), std::io::Error> {
         let mut content = String::new();
         file.read_to_string(&mut content)?;
 
-        match parse_csa(&content) {
-            Ok(record) => {
-                println!("{:?}", solve(&record.start_pos));
-            }
-            Err(err) => panic!("{}", err),
-        }
+        let csa = parse_csa(&content).expect("failed to parse CSA string");
+        let sfen = Record::from(csa).to_sfen();
+        let mut pos = Position::new();
+        pos.set_sfen(&sfen).expect("failed to parse SFEN string");
+        println!("{}", solve(&pos));
     }
     Ok(())
 }
