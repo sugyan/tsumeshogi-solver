@@ -25,7 +25,7 @@ fn valid_moves(pos: &mut Position, color: Color) -> Vec<Move> {
                             let m = Move::Normal { from, to, promote };
                             match pos.make_move(m) {
                                 Ok(_) => {
-                                    if pos.in_check(Color::White) {
+                                    if pos.in_check(Color::White) && !pos.in_check(Color::Black) {
                                         moves.push(m);
                                     }
                                     pos.unmake_move().expect("failed to unmake move");
@@ -40,17 +40,15 @@ fn valid_moves(pos: &mut Position, color: Color) -> Vec<Move> {
                 }
             }
             // drop moves
-            let piece_types = PieceType::iter()
-                .filter(|&piece_type| {
-                    piece_type.is_hand_piece() && pos.hand(Piece { piece_type, color }) > 0
-                })
-                .collect::<Vec<_>>();
-            for piece_type in piece_types {
+            for piece_type in PieceType::iter().filter(|p| p.is_hand_piece()) {
+                if pos.hand(Piece { piece_type, color }) == 0 {
+                    continue;
+                }
                 for to in Square::iter() {
                     let m = Move::Drop { to, piece_type };
                     match pos.make_move(m) {
                         Ok(_) => {
-                            if pos.in_check(Color::White) {
+                            if pos.in_check(Color::White) && !pos.in_check(Color::Black) {
                                 moves.push(m);
                             }
                             pos.unmake_move().expect("failed to unmake move");
@@ -58,9 +56,7 @@ fn valid_moves(pos: &mut Position, color: Color) -> Vec<Move> {
                         Err(MoveError::Inconsistent(_)) => {
                             // ignore
                         }
-                        Err(e) => {
-                            println!("{}", e);
-                        }
+                        Err(e) => panic!("move error {}: {}", m, e),
                     }
                 }
             }
