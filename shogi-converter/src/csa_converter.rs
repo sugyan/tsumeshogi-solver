@@ -64,18 +64,18 @@ impl From<CsaPosition> for Position {
                 b.iter()
                     .flat_map(|row| row.iter().filter_map(|&o| o))
                     .for_each(|(_, pt)| {
-                        let c = counts.get_mut(&pt.unpromoted()).expect("unknown piece");
+                        let c = counts.get_mut(&pt.unpromoted()).unwrap();
                         *c -= 1;
                         assert!(*c >= 0, "invalid pieces count");
                     })
             }
             drop_pieces.iter().for_each(|(_, pt)| {
-                let c = counts.get_mut(pt).expect("unknown drop_piece");
+                let c = counts.get_mut(pt).unwrap();
                 *c -= 1;
                 assert!(*c >= 0, "invalid pieces count");
             });
             add_pieces.iter().for_each(|(_, _, pt)| {
-                let c = counts.get_mut(pt).expect("unknown add_piece");
+                let c = counts.get_mut(pt).unwrap();
                 *c -= 1;
                 assert!(*c >= 0, "invalid pieces count");
             });
