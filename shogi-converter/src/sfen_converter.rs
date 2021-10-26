@@ -41,24 +41,19 @@ impl Record {
                     .iter()
                     .filter_map(|&(c, _, pt)| if c == color { Some(pt) } else { None })
                     .collect::<Vec<_>>();
-                let counts = if pieces == vec![PieceType::All] {
-                    // TODO
-                    [0; 7]
-                } else {
-                    pieces.iter().fold([0; 7], |mut c, &pt| {
-                        c[match pt {
-                            PieceType::Rook => 0,
-                            PieceType::Bishop => 1,
-                            PieceType::Gold => 2,
-                            PieceType::Silver => 3,
-                            PieceType::Knight => 4,
-                            PieceType::Lance => 5,
-                            PieceType::Pawn => 6,
-                            _ => unreachable!(),
-                        }] += 1;
-                        c
-                    })
-                };
+                let counts = pieces.iter().fold([0; 7], |mut c, &pt| {
+                    c[match pt {
+                        PieceType::Rook => 0,
+                        PieceType::Bishop => 1,
+                        PieceType::Gold => 2,
+                        PieceType::Silver => 3,
+                        PieceType::Knight => 4,
+                        PieceType::Lance => 5,
+                        PieceType::Pawn => 6,
+                        _ => unreachable!(),
+                    }] += 1;
+                    c
+                });
                 ['r', 'b', 'g', 's', 'n', 'l', 'p']
                     .iter()
                     .enumerate()

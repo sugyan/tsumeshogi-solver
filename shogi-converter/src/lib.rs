@@ -164,7 +164,7 @@ impl fmt::Display for Square {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum PieceType {
     Pawn,
     Lance,
@@ -180,31 +180,48 @@ pub enum PieceType {
     ProSilver,
     Horse,
     Dragon,
-    All,
+
+    Extra,
 }
 
-impl fmt::Display for PieceType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let pt = match *self {
-            PieceType::Pawn => "FU",
-            PieceType::Lance => "KY",
-            PieceType::Knight => "KE",
-            PieceType::Silver => "GI",
-            PieceType::Gold => "KI",
-            PieceType::Bishop => "KA",
-            PieceType::Rook => "HI",
-            PieceType::King => "OU",
-            PieceType::ProPawn => "TO",
-            PieceType::ProLance => "NY",
-            PieceType::ProKnight => "NK",
-            PieceType::ProSilver => "NG",
-            PieceType::Horse => "UM",
-            PieceType::Dragon => "RY",
-            PieceType::All => "AL",
-        };
-        write!(f, "{}", pt)
+impl PieceType {
+    fn unpromoted(self) -> Self {
+        use self::PieceType::*;
+        match self {
+            Pawn | ProPawn => Pawn,
+            Lance | ProLance => Lance,
+            Knight | ProKnight => Knight,
+            Silver | ProSilver => Silver,
+            Gold => Gold,
+            Bishop | Horse => Bishop,
+            Rook | Dragon => Rook,
+            King => King,
+            _ => Extra,
+        }
     }
 }
+
+// impl fmt::Display for PieceType {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         let pt = match *self {
+//             PieceType::Pawn => "FU",
+//             PieceType::Lance => "KY",
+//             PieceType::Knight => "KE",
+//             PieceType::Silver => "GI",
+//             PieceType::Gold => "KI",
+//             PieceType::Bishop => "KA",
+//             PieceType::Rook => "HI",
+//             PieceType::King => "OU",
+//             PieceType::ProPawn => "TO",
+//             PieceType::ProLance => "NY",
+//             PieceType::ProKnight => "NK",
+//             PieceType::ProSilver => "NG",
+//             PieceType::Horse => "UM",
+//             PieceType::Dragon => "RY",
+//         };
+//         write!(f, "{}", pt)
+//     }
+// }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -218,38 +235,38 @@ pub struct Position {
     pub side_to_move: Color,
 }
 
-impl fmt::Display for Position {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(ref bulk) = self.bulk {
-            for (i, row) in bulk.iter().enumerate() {
-                write!(f, "P{}", i + 1)?;
+// impl fmt::Display for Position {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         if let Some(ref bulk) = self.bulk {
+//             for (i, row) in bulk.iter().enumerate() {
+//                 write!(f, "P{}", i + 1)?;
 
-                for pc in row.iter() {
-                    match *pc {
-                        Some((ref color, ref pt)) => write!(f, "{}{}", color, pt)?,
-                        None => write!(f, " * ")?,
-                    }
-                }
+//                 for pc in row.iter() {
+//                     match *pc {
+//                         Some((ref color, ref pt)) => write!(f, "{}{}", color, pt)?,
+//                         None => write!(f, " * ")?,
+//                     }
+//                 }
 
-                writeln!(f)?;
-            }
-        } else {
-            write!(f, "PI")?;
-            for &(ref sq, ref pt) in &self.drop_pieces {
-                write!(f, "{}{}", sq, pt)?;
-            }
-            writeln!(f)?;
-        }
+//                 writeln!(f)?;
+//             }
+//         } else {
+//             write!(f, "PI")?;
+//             for &(ref sq, ref pt) in &self.drop_pieces {
+//                 write!(f, "{}{}", sq, pt)?;
+//             }
+//             writeln!(f)?;
+//         }
 
-        for &(ref color, ref sq, ref pt) in &self.add_pieces {
-            writeln!(f, "P{}{}{}", color, sq, pt)?;
-        }
+//         for &(ref color, ref sq, ref pt) in &self.add_pieces {
+//             writeln!(f, "P{}{}{}", color, sq, pt)?;
+//         }
 
-        writeln!(f, "{}", self.side_to_move)?;
+//         writeln!(f, "{}", self.side_to_move)?;
 
-        Ok(())
-    }
-}
+//         Ok(())
+//     }
+// }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -271,28 +288,28 @@ pub enum Action {
     Error,
 }
 
-impl fmt::Display for Action {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Action::Move(ref color, ref from, ref to, ref pt) => {
-                write!(f, "{}{}{}{}", color, from, to, pt)
-            }
-            Action::Toryo => write!(f, "%TORYO"),
-            Action::Chudan => write!(f, "%CHUDAN"),
-            Action::Sennichite => write!(f, "%SENNICHITE"),
-            Action::TimeUp => write!(f, "%TIME_UP"),
-            Action::IllegalMove => write!(f, "%ILLEGAL_MOVE"),
-            Action::IllegalAction(ref color) => write!(f, "%{}ILLEGAL_ACTION", color),
-            Action::Jishogi => write!(f, "%JISHOGI"),
-            Action::Kachi => write!(f, "%KACHI"),
-            Action::Hikiwake => write!(f, "%HIKIWAKE"),
-            Action::Matta => write!(f, "%MATTA"),
-            Action::Tsumi => write!(f, "%TSUMI"),
-            Action::Fuzumi => write!(f, "%FUZUMI"),
-            Action::Error => write!(f, "%ERROR"),
-        }
-    }
-}
+// impl fmt::Display for Action {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         match *self {
+//             Action::Move(ref color, ref from, ref to, ref pt) => {
+//                 write!(f, "{}{}{}{}", color, from, to, pt)
+//             }
+//             Action::Toryo => write!(f, "%TORYO"),
+//             Action::Chudan => write!(f, "%CHUDAN"),
+//             Action::Sennichite => write!(f, "%SENNICHITE"),
+//             Action::TimeUp => write!(f, "%TIME_UP"),
+//             Action::IllegalMove => write!(f, "%ILLEGAL_MOVE"),
+//             Action::IllegalAction(ref color) => write!(f, "%{}ILLEGAL_ACTION", color),
+//             Action::Jishogi => write!(f, "%JISHOGI"),
+//             Action::Kachi => write!(f, "%KACHI"),
+//             Action::Hikiwake => write!(f, "%HIKIWAKE"),
+//             Action::Matta => write!(f, "%MATTA"),
+//             Action::Tsumi => write!(f, "%TSUMI"),
+//             Action::Fuzumi => write!(f, "%FUZUMI"),
+//             Action::Error => write!(f, "%ERROR"),
+//         }
+//     }
+// }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -302,17 +319,17 @@ pub struct Move {
     pub time: Option<Duration>,
 }
 
-impl fmt::Display for Move {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "{}", self.action)?;
+// impl fmt::Display for Move {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         writeln!(f, "{}", self.action)?;
 
-        if let Some(ref time) = self.time {
-            writeln!(f, "T{}", time.as_secs())?;
-        }
+//         if let Some(ref time) = self.time {
+//             writeln!(f, "T{}", time.as_secs())?;
+//         }
 
-        Ok(())
-    }
-}
+//         Ok(())
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
