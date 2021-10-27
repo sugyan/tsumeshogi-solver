@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use csa::parse_csa;
-use dfpn_solver::Solver;
+use dfpn_solver::solve;
 use shogi::Position;
 use shogi_converter::Record;
 use std::{fs::File, io::Read};
@@ -23,9 +23,7 @@ fn main() -> Result<(), std::io::Error> {
         let sfen = Record::from(csa).to_sfen();
         let mut pos = Position::new();
         pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-
-        let mut solver = Solver::new();
-        println!("{}", solver.solve(&mut pos));
+        solve(&pos);
     }
     Ok(())
 }
