@@ -1,89 +1,49 @@
+use crate::HashablePosition;
 use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square};
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
-pub trait ShogiPosition {
-    fn hand(&self, p: Piece) -> u8;
-    fn in_check(&self, c: Color) -> bool;
-    fn make_move(&mut self, m: Move) -> Result<(), MoveError>;
-    fn move_candidates(&self, sq: Square, p: Piece) -> Bitboard;
-    fn piece_at(&self, sq: Square) -> &Option<Piece>;
-    fn player_bb(&self, c: Color) -> &Bitboard;
-    fn side_to_move(&self) -> Color;
-    fn unmake_move(&mut self) -> Result<(), MoveError>;
-}
-
-pub trait HashablePosition: ShogiPosition {
-    fn look_up_hash(&self) -> (u32, u32);
-    fn put_in_hash(&mut self, value: (u32, u32));
-}
-
-// NaiveHashPosition
-
-pub struct NaiveHashPosition {
-    pos: PositionWrapper,
-    table: HashMap<u64, (u32, u32)>,
-}
+pub struct NaiveHashPosition(Position);
 
 impl NaiveHashPosition {
     pub fn new(pos: Position) -> Self {
-        Self {
-            pos: PositionWrapper(pos),
-            table: HashMap::new(),
-        }
+        Self(pos)
     }
 }
 
 impl HashablePosition for NaiveHashPosition {
-    fn look_up_hash(&self) -> (u32, u32) {
-        *self.table.get(&u64::from(&self.pos)).unwrap_or(&(1, 1))
-    }
-    fn put_in_hash(&mut self, value: (u32, u32)) {
-        self.table.insert(u64::from(&self.pos), value);
-    }
-}
-
-impl ShogiPosition for NaiveHashPosition {
     fn hand(&self, p: Piece) -> u8 {
-        self.pos.0.hand(p)
+        self.0.hand(p)
     }
     fn in_check(&self, c: Color) -> bool {
-        self.pos.0.in_check(c)
+        self.0.in_check(c)
     }
     fn make_move(&mut self, m: Move) -> Result<(), MoveError> {
-        self.pos.0.make_move(m)
+        self.0.make_move(m)
     }
     fn move_candidates(&self, sq: Square, p: Piece) -> Bitboard {
-        self.pos.0.move_candidates(sq, p)
+        self.0.move_candidates(sq, p)
     }
     fn piece_at(&self, sq: Square) -> &Option<Piece> {
-        self.pos.0.piece_at(sq)
+        self.0.piece_at(sq)
     }
     fn player_bb(&self, c: Color) -> &Bitboard {
-        self.pos.0.player_bb(c)
+        self.0.player_bb(c)
     }
     fn side_to_move(&self) -> Color {
-        self.pos.0.side_to_move()
+        self.0.side_to_move()
     }
     fn unmake_move(&mut self) -> Result<(), MoveError> {
-        self.pos.0.unmake_move()
+        self.0.unmake_move()
     }
-}
-
-// PositionWrapper for NaiveHashPosition
-
-struct PositionWrapper(Position);
-
-impl From<&PositionWrapper> for u64 {
-    fn from(pr: &PositionWrapper) -> Self {
+    fn to_hash(&self) -> u64 {
         let mut s = DefaultHasher::new();
-        pr.hash(&mut s);
+        self.hash(&mut s);
         s.finish()
     }
 }
 
-impl Hash for PositionWrapper {
+impl Hash for NaiveHashPosition {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Square::iter().for_each(|sq| {
             self.0.piece_at(sq).map_or(28, |p| p8(p)).hash(state);
@@ -97,14 +57,6 @@ impl Hash for PositionWrapper {
         };
     }
 }
-
-impl PartialEq for PositionWrapper {
-    fn eq(&self, other: &Self) -> bool {
-        u64::from(self) == u64::from(other)
-    }
-}
-
-impl Eq for PositionWrapper {}
 
 fn p8(p: Piece) -> u8 {
     let piece_type = match p.piece_type {
