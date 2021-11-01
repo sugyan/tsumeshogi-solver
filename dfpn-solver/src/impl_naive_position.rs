@@ -5,8 +5,11 @@ use std::hash::{Hash, Hasher};
 
 pub struct NaiveHashPosition(Position);
 
-impl NaiveHashPosition {
-    pub fn new(pos: Position) -> Self {
+impl From<&Position> for NaiveHashPosition {
+    fn from(p: &Position) -> Self {
+        let mut pos = Position::new();
+        pos.set_sfen(&p.to_sfen())
+            .expect("failed to parse SFEN string");
         Self(pos)
     }
 }

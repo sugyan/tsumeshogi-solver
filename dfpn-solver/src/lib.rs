@@ -11,12 +11,7 @@ const MAX: Num = Num::MAX;
 pub fn solve(pos: &Position) {
     Factory::init();
 
-    // copy the position
-    let sfen = pos.to_sfen();
-    let mut pos = Position::new();
-    pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-
-    let mut solver = Solver::new(NaiveHashPosition::new(pos));
+    let mut solver = Solver::<NaiveHashPosition>::new(pos.into());
     solver.solve();
 }
 
@@ -37,6 +32,12 @@ struct Solver<T> {
     table: HashMap<u64, (Num, Num)>,
 }
 
+#[derive(Debug, Default)]
+struct PD {
+    pn: Num,
+    dn: Num,
+}
+
 impl<T> Solver<T>
 where
     T: HashablePosition,
@@ -48,55 +49,101 @@ where
         }
     }
     fn solve(&mut self) {
-        self.mid((MAX - 1, MAX - 1));
+        // ルートでの反復深化
+        let mut pd = PD::default();
+        self.set_phi(&mut pd, MAX - 1);
+        self.set_delta(&mut pd, MAX - 1);
+        self.mid(&mut pd);
+        if self.get_phi(&pd) != MAX && self.get_delta(&pd) != MAX {
+            self.set_phi(&mut pd, MAX);
+            self.set_delta(&mut pd, MAX);
+            self.mid(&mut pd);
+        }
     }
-    fn mid(&mut self, (phi, delta): (Num, Num)) {
-        let (p, d) = self.look_up_hash();
-        if phi < p || delta < d {
-            // TODO
+    fn get_phi(&self, pd: &PD) -> Num {
+        match self.pos.side_to_move() {
+            Color::Black => pd.pn,
+            Color::White => pd.dn,
+        }
+    }
+    fn get_delta(&self, pd: &PD) -> Num {
+        match self.pos.side_to_move() {
+            Color::Black => pd.dn,
+            Color::White => pd.pn,
+        }
+    }
+    fn set_phi(&self, pd: &mut PD, val: Num) {
+        match self.pos.side_to_move() {
+            Color::Black => pd.pn = val,
+            Color::White => pd.dn = val,
+        }
+    }
+    fn set_delta(&self, pd: &mut PD, val: Num) {
+        match self.pos.side_to_move() {
+            Color::Black => pd.dn = val,
+            Color::White => pd.pn = val,
+        }
+    }
+    // ノードの展開
+    fn mid(&mut self, pd: &mut PD) {
+        // 1. ハッシュを引く
+        let (p, d) = self.look_up_hash(&self.pos.to_hash());
+        if self.get_phi(pd) < p || self.get_delta(pd) < d {
+            self.set_phi(pd, p);
+            self.set_delta(pd, d);
             return;
         }
-
+        // 2. 合法手の生成
         let children = generate_legal_moves(&mut self.pos);
         if children.is_empty() {
-            println!("empty!!");
-            // TODO
+            // ?
+            self.set_phi(pd, MAX);
+            self.set_delta(pd, 0);
+            self.put_in_hash((self.get_phi(pd), self.get_delta(pd)));
             return;
         }
-        self.put_in_hash((phi, delta));
+        // 3. ハッシュによるサイクル回避
+        self.put_in_hash((self.get_phi(pd), self.get_delta(pd)));
+        // 4. 多重反復深化
         loop {
+            // φ か δ がそのしきい値以上なら探索終了
             let md = self.min_delta(&children);
             let sp = self.sum_phi(&children);
-
-            let (best, phi_c, delta_c, delta_2) = self.select_child(&children);
-            println!(
-                "select: {}",
-                best.map_or(String::from("None"), |m| m.to_string())
-            );
-            // let phi_n_c = if phi_c == MAX - 1 {
-            //     MAX
-            // } else if delta >= MAX - 1 {
-            //     MAX - 1
-            // } else {
-            //     delta + phi_c - phi_sum
-            // };
-            if let Some(m) = best {
-                self.pos.make_move(m).expect("failed to make move");
-                self.mid((phi_c, delta_c));
+            if self.get_phi(pd) < md || self.get_delta(pd) < sp {
+                self.set_phi(pd, md);
+                self.set_delta(pd, sp);
+                self.put_in_hash((self.get_phi(pd), self.get_delta(pd)));
+                return;
             }
-            break;
+            let (best, phi_c, delta_c, delta_2) = self.select_child(&children);
+            let phi_n_c = if phi_c == MAX - 1 {
+                MAX
+            } else if self.get_delta(pd) >= MAX - 1 {
+                MAX - 1
+            } else {
+                self.get_delta(pd) + phi_c - sp
+            };
+            let delta_n_c = if delta_c == MAX - 1 {
+                MAX
+            } else {
+                (self.get_phi(pd)).min(delta_2.saturating_add(1))
+            };
+            let m = best.expect("best move");
+            self.pos.make_move(m).expect("failed to make move");
+            let mut pd_c = PD::default();
+            self.set_phi(&mut pd_c, phi_n_c);
+            self.set_delta(&mut pd_c, delta_n_c);
+            self.mid(&mut pd_c);
+            self.pos.unmake_move().expect("failed to unmake move");
         }
-
-        println!("{:?}", (p, d));
     }
+    // 子ノードの選択
     fn select_child(&mut self, children: &[(Move, u64)]) -> (Option<Move>, Num, Num, Num) {
         let (mut delta_c, mut delta_2) = (MAX, MAX);
         let mut best = None;
         let mut phi_c = None; // not optional?
-        for &(m, _) in children {
-            self.pos.make_move(m).expect("failed to make move");
-            let (p, d) = self.look_up_hash();
-            self.pos.unmake_move().expect("failed to unmake move");
+        for &(m, h) in children {
+            let (p, d) = self.look_up_hash(&h);
             if d < delta_c {
                 best = Some(m);
                 delta_2 = delta_c;
@@ -111,20 +158,31 @@ where
         }
         (best, phi_c.expect("phi_c"), delta_c, delta_2)
     }
-
-    fn look_up_hash(&self) -> (Num, Num) {
-        *self.table.get(&self.pos.to_hash()).unwrap_or(&(1, 1))
+    // ハッシュを引く (本当は優越関係が使える)
+    fn look_up_hash(&self, key: &u64) -> (Num, Num) {
+        *self.table.get(key).unwrap_or(&(1, 1))
     }
+    // ハッシュに記録
     fn put_in_hash(&mut self, value: (Num, Num)) {
         self.table.insert(self.pos.to_hash(), value);
     }
+    // n の子ノード の δ の最小を計算
     fn min_delta(&mut self, children: &[(Move, u64)]) -> Num {
-        // TODO
-        0
+        let mut min = MAX;
+        for &(_, h) in children {
+            let (_, d) = self.look_up_hash(&h);
+            min = min.min(d);
+        }
+        min
     }
+    // nの子ノードのφの和を計算
     fn sum_phi(&mut self, children: &[(Move, u64)]) -> Num {
-        // TODO
-        0
+        let mut sum: Num = 0;
+        for &(_, h) in children {
+            let (p, _) = self.look_up_hash(&h);
+            sum = sum.saturating_add(p);
+        }
+        sum
     }
 }
 
