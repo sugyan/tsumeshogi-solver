@@ -3,16 +3,19 @@ mod impl_naive_position;
 use impl_naive_position::NaiveHashPosition;
 use shogi::bitboard::Factory;
 use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square};
+use std::cmp::Reverse;
 use std::collections::HashMap;
 
 type Num = u16;
 const MAX: Num = Num::MAX;
 
-pub fn solve(pos: &Position) {
+pub fn solve(pos: &Position) -> Vec<Move> {
     Factory::init();
 
     let mut solver = Solver::<NaiveHashPosition>::new(pos.into());
-    solver.solve();
+    let answer = solver.solve();
+    println!("{} nodes", solver.table.len());
+    answer
 }
 
 trait HashablePosition {
@@ -48,7 +51,7 @@ where
             table: HashMap::new(),
         }
     }
-    fn solve(&mut self) {
+    fn solve(&mut self) -> Vec<Move> {
         // ルートでの反復深化
         let mut pd = PD::default();
         self.set_phi(&mut pd, MAX - 1);
@@ -59,6 +62,11 @@ where
             self.set_delta(&mut pd, MAX);
             self.mid(&mut pd);
         }
+        let mut answer = Vec::new();
+        if pd.dn == MAX {
+            self.search_answer(&mut answer);
+        }
+        answer
     }
     fn get_phi(&self, pd: &PD) -> Num {
         match self.pos.side_to_move() {
@@ -88,7 +96,7 @@ where
     fn mid(&mut self, pd: &mut PD) {
         // 1. ハッシュを引く
         let (p, d) = self.look_up_hash(&self.pos.to_hash());
-        if self.get_phi(pd) < p || self.get_delta(pd) < d {
+        if self.get_phi(pd) <= p || self.get_delta(pd) <= d {
             self.set_phi(pd, p);
             self.set_delta(pd, d);
             return;
@@ -109,7 +117,7 @@ where
             // φ か δ がそのしきい値以上なら探索終了
             let md = self.min_delta(&children);
             let sp = self.sum_phi(&children);
-            if self.get_phi(pd) < md || self.get_delta(pd) < sp {
+            if self.get_phi(pd) <= md || self.get_delta(pd) <= sp {
                 self.set_phi(pd, md);
                 self.set_delta(pd, sp);
                 self.put_in_hash((self.get_phi(pd), self.get_delta(pd)));
@@ -183,6 +191,27 @@ where
             sum = sum.saturating_add(p);
         }
         sum
+    }
+    fn search_answer(&mut self, answer: &mut Vec<Move>) {
+        let mut v = generate_legal_moves(&mut self.pos)
+            .iter()
+            .map(|&(m, h)| (m, self.look_up_hash(&h)))
+            .collect::<Vec<_>>();
+        v.sort_by_cached_key(|&(_, (p, d))| match self.pos.side_to_move() {
+            Color::Black => (Reverse(p), d),
+            Color::White => (Reverse(d), p),
+        });
+        for &(m, (p, d)) in &v {
+            if (self.pos.side_to_move() == Color::Black && p == MAX)
+                || (self.pos.side_to_move() == Color::White && d == MAX)
+            {
+                answer.push(m);
+                self.pos.make_move(m).expect("failed to make move");
+                self.search_answer(answer);
+                self.pos.unmake_move().expect("failed to unmake move");
+                return;
+            }
+        }
     }
 }
 

@@ -23,7 +23,13 @@ fn main() -> Result<(), std::io::Error> {
         let sfen = Record::from(csa).to_sfen();
         let mut pos = Position::new();
         pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-        solve(&pos);
+        println!(
+            "{:?}",
+            solve(&pos)
+                .iter()
+                .map(|p| p.to_string())
+                .collect::<Vec<_>>()
+        );
     }
     Ok(())
 }
