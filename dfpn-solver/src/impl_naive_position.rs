@@ -1,4 +1,4 @@
-use crate::HashablePosition;
+use crate::HashPosition;
 use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -14,7 +14,8 @@ impl From<&Position> for NaiveHashPosition {
     }
 }
 
-impl HashablePosition for NaiveHashPosition {
+impl HashPosition for NaiveHashPosition {
+    type T = u64;
     fn hand(&self, p: Piece) -> u8 {
         self.0.hand(p)
     }

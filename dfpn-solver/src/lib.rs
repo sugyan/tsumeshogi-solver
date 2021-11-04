@@ -5,6 +5,7 @@ use shogi::bitboard::Factory;
 use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square};
 use std::cmp::Reverse;
 use std::collections::HashMap;
+use std::hash::Hash;
 
 type U = u32;
 
@@ -19,7 +20,8 @@ pub fn solve(pos: &Position) -> Vec<Move> {
     answer
 }
 
-trait HashablePosition {
+trait HashPosition {
+    type T: Eq + Hash + Copy;
     fn hand(&self, p: Piece) -> u8;
     fn in_check(&self, c: Color) -> bool;
     fn make_move(&mut self, m: Move) -> Result<(), MoveError>;
@@ -28,12 +30,15 @@ trait HashablePosition {
     fn player_bb(&self, c: Color) -> &Bitboard;
     fn side_to_move(&self) -> Color;
     fn unmake_move(&mut self) -> Result<(), MoveError>;
-    fn to_hash(&self) -> u64;
+    fn to_hash(&self) -> Self::T;
 }
 
-struct Solver<T> {
-    pos: T,
-    table: HashMap<u64, (U, U)>,
+struct Solver<H>
+where
+    H: HashPosition,
+{
+    pos: H,
+    table: HashMap<H::T, (U, U)>,
 }
 
 #[derive(Debug, Default)]
@@ -42,11 +47,11 @@ struct PD {
     dn: U,
 }
 
-impl<T> Solver<T>
+impl<H> Solver<H>
 where
-    T: HashablePosition,
+    H: HashPosition,
 {
-    fn new(pos: T) -> Self {
+    fn new(pos: H) -> Self {
         Self {
             pos,
             table: HashMap::new(),
@@ -147,7 +152,7 @@ where
         }
     }
     // 子ノードの選択
-    fn select_child(&mut self, children: &[(Move, u64)]) -> (Option<Move>, U, U, U) {
+    fn select_child(&mut self, children: &[(Move, H::T)]) -> (Option<Move>, U, U, U) {
         let (mut delta_c, mut delta_2) = (MAX, MAX);
         let mut best = None;
         let mut phi_c = None; // not optional?
@@ -168,7 +173,7 @@ where
         (best, phi_c.expect("phi_c"), delta_c, delta_2)
     }
     // ハッシュを引く (本当は優越関係が使える)
-    fn look_up_hash(&self, key: &u64) -> (U, U) {
+    fn look_up_hash(&self, key: &H::T) -> (U, U) {
         *self.table.get(key).unwrap_or(&(1, 1))
     }
     // ハッシュに記録
@@ -176,7 +181,7 @@ where
         self.table.insert(self.pos.to_hash(), value);
     }
     // n の子ノード の δ の最小を計算
-    fn min_delta(&mut self, children: &[(Move, u64)]) -> U {
+    fn min_delta(&mut self, children: &[(Move, H::T)]) -> U {
         let mut min = MAX;
         for &(_, h) in children {
             let (_, d) = self.look_up_hash(&h);
@@ -185,7 +190,7 @@ where
         min
     }
     // nの子ノードのφの和を計算
-    fn sum_phi(&mut self, children: &[(Move, u64)]) -> U {
+    fn sum_phi(&mut self, children: &[(Move, H::T)]) -> U {
         let mut sum: U = 0;
         for &(_, h) in children {
             let (p, _) = self.look_up_hash(&h);
@@ -216,9 +221,9 @@ where
     }
 }
 
-fn generate_legal_moves<T>(pos: &mut T) -> Vec<(Move, u64)>
+fn generate_legal_moves<H>(pos: &mut H) -> Vec<(Move, H::T)>
 where
-    T: HashablePosition,
+    H: HashPosition,
 {
     let color = pos.side_to_move();
     let &bb = pos.player_bb(color);
