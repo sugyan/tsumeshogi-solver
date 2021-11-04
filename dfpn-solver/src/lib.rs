@@ -1,10 +1,11 @@
+mod impl_hashmap;
 mod impl_naive_position;
 
+use impl_hashmap::HashMapTable;
 use impl_naive_position::NaiveHashPosition;
 use shogi::bitboard::Factory;
 use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square};
 use std::cmp::Reverse;
-use std::collections::HashMap;
 use std::hash::Hash;
 
 type U = u32;
@@ -14,9 +15,11 @@ const MAX: U = U::MAX;
 pub fn solve(pos: &Position) -> Vec<Move> {
     Factory::init();
 
-    let mut solver = Solver::<NaiveHashPosition>::new(pos.into());
-    let answer = solver.solve();
-    println!("{} nodes", solver.table.len());
+    let mut solver = Solver::new(NaiveHashPosition::from(pos), HashMapTable::<u64>::new());
+    solver.dfpn();
+
+    let mut answer = Vec::new();
+    solver.search_answer(&mut answer);
     answer
 }
 
@@ -33,12 +36,15 @@ trait HashPosition {
     fn to_hash(&self) -> Self::T;
 }
 
-struct Solver<H>
-where
-    H: HashPosition,
-{
-    pos: H,
-    table: HashMap<H::T, (U, U)>,
+trait Table {
+    type T;
+    fn look_up_hash(&self, key: &Self::T) -> (U, U);
+    fn put_in_hash(&mut self, key: Self::T, value: (U, U));
+}
+
+struct Solver<HP, T> {
+    hp: HP,
+    t: T,
 }
 
 #[derive(Debug, Default)]
@@ -47,17 +53,15 @@ struct PD {
     dn: U,
 }
 
-impl<H> Solver<H>
+impl<HP, T> Solver<HP, T>
 where
-    H: HashPosition,
+    HP: HashPosition,
+    T: Table<T = HP::T>,
 {
-    fn new(pos: H) -> Self {
-        Self {
-            pos,
-            table: HashMap::new(),
-        }
+    fn new(hp: HP, t: T) -> Self {
+        Self { hp, t }
     }
-    fn solve(&mut self) -> Vec<Move> {
+    fn dfpn(&mut self) {
         // ルートでの反復深化
         let mut pd = PD::default();
         self.set_phi(&mut pd, MAX - 1);
@@ -68,32 +72,27 @@ where
             self.set_delta(&mut pd, MAX);
             self.mid(&mut pd);
         }
-        let mut answer = Vec::new();
-        if pd.dn == MAX {
-            self.search_answer(&mut answer);
-        }
-        answer
     }
     fn get_phi(&self, pd: &PD) -> U {
-        match self.pos.side_to_move() {
+        match self.hp.side_to_move() {
             Color::Black => pd.pn,
             Color::White => pd.dn,
         }
     }
     fn get_delta(&self, pd: &PD) -> U {
-        match self.pos.side_to_move() {
+        match self.hp.side_to_move() {
             Color::Black => pd.dn,
             Color::White => pd.pn,
         }
     }
     fn set_phi(&self, pd: &mut PD, val: U) {
-        match self.pos.side_to_move() {
+        match self.hp.side_to_move() {
             Color::Black => pd.pn = val,
             Color::White => pd.dn = val,
         }
     }
     fn set_delta(&self, pd: &mut PD, val: U) {
-        match self.pos.side_to_move() {
+        match self.hp.side_to_move() {
             Color::Black => pd.dn = val,
             Color::White => pd.pn = val,
         }
@@ -101,14 +100,14 @@ where
     // ノードの展開
     fn mid(&mut self, pd: &mut PD) {
         // 1. ハッシュを引く
-        let (p, d) = self.look_up_hash(&self.pos.to_hash());
+        let (p, d) = self.look_up_hash(&self.hp.to_hash());
         if self.get_phi(pd) <= p || self.get_delta(pd) <= d {
             self.set_phi(pd, p);
             self.set_delta(pd, d);
             return;
         }
         // 2. 合法手の生成
-        let children = generate_legal_moves(&mut self.pos);
+        let children = generate_legal_moves(&mut self.hp);
         if children.is_empty() {
             // ?
             self.set_phi(pd, MAX);
@@ -143,16 +142,16 @@ where
                 (self.get_phi(pd)).min(delta_2.saturating_add(1))
             };
             let m = best.expect("best move");
-            self.pos.make_move(m).expect("failed to make move");
+            self.hp.make_move(m).expect("failed to make move");
             let mut pd_c = PD::default();
             self.set_phi(&mut pd_c, phi_n_c);
             self.set_delta(&mut pd_c, delta_n_c);
             self.mid(&mut pd_c);
-            self.pos.unmake_move().expect("failed to unmake move");
+            self.hp.unmake_move().expect("failed to unmake move");
         }
     }
     // 子ノードの選択
-    fn select_child(&mut self, children: &[(Move, H::T)]) -> (Option<Move>, U, U, U) {
+    fn select_child(&mut self, children: &[(Move, HP::T)]) -> (Option<Move>, U, U, U) {
         let (mut delta_c, mut delta_2) = (MAX, MAX);
         let mut best = None;
         let mut phi_c = None; // not optional?
@@ -173,15 +172,15 @@ where
         (best, phi_c.expect("phi_c"), delta_c, delta_2)
     }
     // ハッシュを引く (本当は優越関係が使える)
-    fn look_up_hash(&self, key: &H::T) -> (U, U) {
-        *self.table.get(key).unwrap_or(&(1, 1))
+    fn look_up_hash(&self, key: &HP::T) -> (U, U) {
+        self.t.look_up_hash(key)
     }
     // ハッシュに記録
     fn put_in_hash(&mut self, value: (U, U)) {
-        self.table.insert(self.pos.to_hash(), value);
+        self.t.put_in_hash(self.hp.to_hash(), value);
     }
     // n の子ノード の δ の最小を計算
-    fn min_delta(&mut self, children: &[(Move, H::T)]) -> U {
+    fn min_delta(&mut self, children: &[(Move, HP::T)]) -> U {
         let mut min = MAX;
         for &(_, h) in children {
             let (_, d) = self.look_up_hash(&h);
@@ -190,7 +189,7 @@ where
         min
     }
     // nの子ノードのφの和を計算
-    fn sum_phi(&mut self, children: &[(Move, H::T)]) -> U {
+    fn sum_phi(&mut self, children: &[(Move, HP::T)]) -> U {
         let mut sum: U = 0;
         for &(_, h) in children {
             let (p, _) = self.look_up_hash(&h);
@@ -199,31 +198,31 @@ where
         sum
     }
     fn search_answer(&mut self, answer: &mut Vec<Move>) {
-        let mut v = generate_legal_moves(&mut self.pos)
+        let mut v = generate_legal_moves(&mut self.hp)
             .iter()
             .map(|&(m, h)| (m, self.look_up_hash(&h)))
             .collect::<Vec<_>>();
-        v.sort_by_cached_key(|&(_, (p, d))| match self.pos.side_to_move() {
+        v.sort_by_cached_key(|&(_, (p, d))| match self.hp.side_to_move() {
             Color::Black => (Reverse(p), d),
             Color::White => (Reverse(d), p),
         });
         for &(m, (p, d)) in &v {
-            if (self.pos.side_to_move() == Color::Black && p == MAX)
-                || (self.pos.side_to_move() == Color::White && d == MAX)
+            if (self.hp.side_to_move() == Color::Black && p == MAX)
+                || (self.hp.side_to_move() == Color::White && d == MAX)
             {
                 answer.push(m);
-                self.pos.make_move(m).expect("failed to make move");
+                self.hp.make_move(m).expect("failed to make move");
                 self.search_answer(answer);
-                self.pos.unmake_move().expect("failed to unmake move");
+                self.hp.unmake_move().expect("failed to unmake move");
                 return;
             }
         }
     }
 }
 
-fn generate_legal_moves<H>(pos: &mut H) -> Vec<(Move, H::T)>
+fn generate_legal_moves<HP>(pos: &mut HP) -> Vec<(Move, HP::T)>
 where
-    H: HashPosition,
+    HP: HashPosition,
 {
     let color = pos.side_to_move();
     let &bb = pos.player_bb(color);
