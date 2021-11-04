@@ -6,8 +6,9 @@ use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square
 use std::cmp::Reverse;
 use std::collections::HashMap;
 
-type Num = u16;
-const MAX: Num = Num::MAX;
+type U = u32;
+
+const MAX: U = U::MAX;
 
 pub fn solve(pos: &Position) -> Vec<Move> {
     Factory::init();
@@ -32,13 +33,13 @@ trait HashablePosition {
 
 struct Solver<T> {
     pos: T,
-    table: HashMap<u64, (Num, Num)>,
+    table: HashMap<u64, (U, U)>,
 }
 
 #[derive(Debug, Default)]
 struct PD {
-    pn: Num,
-    dn: Num,
+    pn: U,
+    dn: U,
 }
 
 impl<T> Solver<T>
@@ -68,25 +69,25 @@ where
         }
         answer
     }
-    fn get_phi(&self, pd: &PD) -> Num {
+    fn get_phi(&self, pd: &PD) -> U {
         match self.pos.side_to_move() {
             Color::Black => pd.pn,
             Color::White => pd.dn,
         }
     }
-    fn get_delta(&self, pd: &PD) -> Num {
+    fn get_delta(&self, pd: &PD) -> U {
         match self.pos.side_to_move() {
             Color::Black => pd.dn,
             Color::White => pd.pn,
         }
     }
-    fn set_phi(&self, pd: &mut PD, val: Num) {
+    fn set_phi(&self, pd: &mut PD, val: U) {
         match self.pos.side_to_move() {
             Color::Black => pd.pn = val,
             Color::White => pd.dn = val,
         }
     }
-    fn set_delta(&self, pd: &mut PD, val: Num) {
+    fn set_delta(&self, pd: &mut PD, val: U) {
         match self.pos.side_to_move() {
             Color::Black => pd.dn = val,
             Color::White => pd.pn = val,
@@ -146,7 +147,7 @@ where
         }
     }
     // 子ノードの選択
-    fn select_child(&mut self, children: &[(Move, u64)]) -> (Option<Move>, Num, Num, Num) {
+    fn select_child(&mut self, children: &[(Move, u64)]) -> (Option<Move>, U, U, U) {
         let (mut delta_c, mut delta_2) = (MAX, MAX);
         let mut best = None;
         let mut phi_c = None; // not optional?
@@ -167,15 +168,15 @@ where
         (best, phi_c.expect("phi_c"), delta_c, delta_2)
     }
     // ハッシュを引く (本当は優越関係が使える)
-    fn look_up_hash(&self, key: &u64) -> (Num, Num) {
+    fn look_up_hash(&self, key: &u64) -> (U, U) {
         *self.table.get(key).unwrap_or(&(1, 1))
     }
     // ハッシュに記録
-    fn put_in_hash(&mut self, value: (Num, Num)) {
+    fn put_in_hash(&mut self, value: (U, U)) {
         self.table.insert(self.pos.to_hash(), value);
     }
     // n の子ノード の δ の最小を計算
-    fn min_delta(&mut self, children: &[(Move, u64)]) -> Num {
+    fn min_delta(&mut self, children: &[(Move, u64)]) -> U {
         let mut min = MAX;
         for &(_, h) in children {
             let (_, d) = self.look_up_hash(&h);
@@ -184,8 +185,8 @@ where
         min
     }
     // nの子ノードのφの和を計算
-    fn sum_phi(&mut self, children: &[(Move, u64)]) -> Num {
-        let mut sum: Num = 0;
+    fn sum_phi(&mut self, children: &[(Move, u64)]) -> U {
+        let mut sum: U = 0;
         for &(_, h) in children {
             let (p, _) = self.look_up_hash(&h);
             sum = sum.saturating_add(p);
@@ -228,16 +229,11 @@ where
             for to in pos.move_candidates(from, *p) {
                 for promote in [true, false] {
                     let m = Move::Normal { from, to, promote };
-                    match pos.make_move(m) {
-                        Ok(()) => {
-                            if color == Color::White || pos.in_check(Color::White) {
-                                children.push((m, pos.to_hash()));
-                            }
-                            pos.unmake_move().expect("failed to unmake move");
+                    if let Ok(_) = pos.make_move(m) {
+                        if color == Color::White || pos.in_check(Color::White) {
+                            children.push((m, pos.to_hash()));
                         }
-                        Err(_) => {
-                            // ignore
-                        }
+                        pos.unmake_move().expect("failed to unmake move");
                     }
                 }
             }
@@ -250,16 +246,11 @@ where
         }
         for to in Square::iter() {
             let m = Move::Drop { to, piece_type };
-            match pos.make_move(m) {
-                Ok(_) => {
-                    if color == Color::White || pos.in_check(Color::White) {
-                        children.push((m, pos.to_hash()));
-                    }
-                    pos.unmake_move().expect("failed to unmake move");
+            if let Ok(_) = pos.make_move(m) {
+                if color == Color::White || pos.in_check(Color::White) {
+                    children.push((m, pos.to_hash()));
                 }
-                Err(_) => {
-                    // ignore
-                }
+                pos.unmake_move().expect("failed to unmake move");
             }
         }
     }
