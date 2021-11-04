@@ -1,8 +1,8 @@
 mod impl_hashmap;
 mod impl_naive_position;
 
-use impl_hashmap::HashMapTable;
-use impl_naive_position::NaiveHashPosition;
+pub use impl_hashmap::HashMapTable;
+pub use impl_naive_position::NaiveHashPosition;
 use shogi::bitboard::Factory;
 use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square};
 use std::cmp::Reverse;
@@ -18,12 +18,12 @@ pub fn solve(pos: &Position) -> Vec<Move> {
     let mut solver = Solver::new(NaiveHashPosition::from(pos), HashMapTable::<u64>::new());
     solver.dfpn();
 
-    let mut answer = Vec::new();
-    solver.search_answer(&mut answer);
-    answer
+    let mut moves = Vec::new();
+    solver.search_mate(&mut moves);
+    moves
 }
 
-trait HashPosition {
+pub trait HashPosition {
     type T: Eq + Hash + Copy;
     fn hand(&self, p: Piece) -> u8;
     fn in_check(&self, c: Color) -> bool;
@@ -36,13 +36,13 @@ trait HashPosition {
     fn to_hash(&self) -> Self::T;
 }
 
-trait Table {
+pub trait Table {
     type T;
     fn look_up_hash(&self, key: &Self::T) -> (U, U);
     fn put_in_hash(&mut self, key: Self::T, value: (U, U));
 }
 
-struct Solver<HP, T> {
+pub struct Solver<HP, T> {
     hp: HP,
     t: T,
 }
@@ -58,10 +58,10 @@ where
     HP: HashPosition,
     T: Table<T = HP::T>,
 {
-    fn new(hp: HP, t: T) -> Self {
+    pub fn new(hp: HP, t: T) -> Self {
         Self { hp, t }
     }
-    fn dfpn(&mut self) {
+    pub fn dfpn(&mut self) {
         // ルートでの反復深化
         let mut pd = PD::default();
         self.set_phi(&mut pd, MAX - 1);
@@ -71,6 +71,27 @@ where
             self.set_phi(&mut pd, MAX);
             self.set_delta(&mut pd, MAX);
             self.mid(&mut pd);
+        }
+    }
+    pub fn search_mate(&mut self, moves: &mut Vec<Move>) {
+        let mut v = generate_legal_moves(&mut self.hp)
+            .iter()
+            .map(|&(m, h)| (m, self.look_up_hash(&h)))
+            .collect::<Vec<_>>();
+        v.sort_by_cached_key(|&(_, (p, d))| match self.hp.side_to_move() {
+            Color::Black => (Reverse(p), d),
+            Color::White => (Reverse(d), p),
+        });
+        for &(m, (p, d)) in &v {
+            if (self.hp.side_to_move() == Color::Black && p == MAX)
+                || (self.hp.side_to_move() == Color::White && d == MAX)
+            {
+                moves.push(m);
+                self.hp.make_move(m).expect("failed to make move");
+                self.search_mate(moves);
+                self.hp.unmake_move().expect("failed to unmake move");
+                return;
+            }
         }
     }
     fn get_phi(&self, pd: &PD) -> U {
@@ -196,27 +217,6 @@ where
             sum = sum.saturating_add(p);
         }
         sum
-    }
-    fn search_answer(&mut self, answer: &mut Vec<Move>) {
-        let mut v = generate_legal_moves(&mut self.hp)
-            .iter()
-            .map(|&(m, h)| (m, self.look_up_hash(&h)))
-            .collect::<Vec<_>>();
-        v.sort_by_cached_key(|&(_, (p, d))| match self.hp.side_to_move() {
-            Color::Black => (Reverse(p), d),
-            Color::White => (Reverse(d), p),
-        });
-        for &(m, (p, d)) in &v {
-            if (self.hp.side_to_move() == Color::Black && p == MAX)
-                || (self.hp.side_to_move() == Color::White && d == MAX)
-            {
-                answer.push(m);
-                self.hp.make_move(m).expect("failed to make move");
-                self.search_answer(answer);
-                self.hp.unmake_move().expect("failed to unmake move");
-                return;
-            }
-        }
     }
 }
 
