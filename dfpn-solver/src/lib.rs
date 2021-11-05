@@ -1,8 +1,9 @@
-mod impl_hashmap;
-mod impl_naive_position;
+pub mod impl_hashmap;
+pub mod impl_naive_hash;
+pub mod impl_zobrist_hash;
 
-pub use impl_hashmap::HashMapTable;
-pub use impl_naive_position::NaiveHashPosition;
+use impl_hashmap::HashMapTable;
+use impl_naive_hash::NaiveHashPosition;
 use shogi::bitboard::Factory;
 use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square};
 use std::cmp::Reverse;
@@ -61,6 +62,8 @@ where
     pub fn new(hp: HP, t: T) -> Self {
         Self { hp, t }
     }
+    // 「df-pnアルゴリズムの詰将棋を解くプログラムへの応用」
+    // https://ci.nii.ac.jp/naid/110002726401
     pub fn dfpn(&mut self) {
         // ルートでの反復深化
         let mut pd = PD::default();

@@ -36,7 +36,9 @@ fn main() -> Result<(), std::io::Error> {
 
 #[cfg(test)]
 mod tests {
-    use dfpn_solver::{HashMapTable, NaiveHashPosition, Solver};
+    use dfpn_solver::impl_hashmap::HashMapTable;
+    use dfpn_solver::impl_naive_hash::NaiveHashPosition;
+    use dfpn_solver::Solver;
     use shogi::bitboard::Factory;
     use shogi::Position;
 
