@@ -3,15 +3,15 @@ use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-pub struct NaiveHashPosition(Position);
+pub struct DefaultHashPosition(Position);
 
-impl NaiveHashPosition {
+impl DefaultHashPosition {
     pub fn new(pos: Position) -> Self {
         Self(pos)
     }
 }
 
-impl HashPosition for NaiveHashPosition {
+impl HashPosition for DefaultHashPosition {
     type T = u64;
     fn hand(&self, p: Piece) -> u8 {
         self.0.hand(p)
@@ -44,7 +44,7 @@ impl HashPosition for NaiveHashPosition {
     }
 }
 
-impl Hash for NaiveHashPosition {
+impl Hash for DefaultHashPosition {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Square::iter().for_each(|sq| {
             self.0.piece_at(sq).map_or(28, |p| p8(p)).hash(state);

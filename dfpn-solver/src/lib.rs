@@ -1,5 +1,5 @@
+pub mod impl_default_hash;
 pub mod impl_hashmap_table;
-pub mod impl_naive_hash;
 pub mod impl_vec_table;
 pub mod impl_zobrist_hash;
 
@@ -232,8 +232,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::impl_default_hash::DefaultHashPosition;
     use crate::impl_hashmap_table::HashMapTable;
-    use crate::impl_naive_hash::NaiveHashPosition;
     use crate::impl_vec_table::VecTable;
     use crate::impl_zobrist_hash::ZobristHashPosition;
     use shogi::bitboard::Factory;
@@ -244,11 +244,11 @@ mod tests {
         Factory::init();
         let sfen = "3sks3/9/4S4/9/1+B7/9/9/9/9 b S2rb4g4n4l18p 1";
 
-        // naive + hashmap
+        // default + hashmap
         {
             let mut pos = Position::new();
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
-            let mut solver = Solver::new(NaiveHashPosition::new(pos), HashMapTable::new());
+            let mut solver = Solver::new(DefaultHashPosition::new(pos), HashMapTable::new());
             solver.dfpn();
             assert_eq!(171, solver.t.len());
         }

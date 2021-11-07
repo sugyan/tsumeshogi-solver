@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 use csa::parse_csa;
+use dfpn_solver::impl_default_hash::DefaultHashPosition;
 use dfpn_solver::impl_hashmap_table::HashMapTable;
-use dfpn_solver::impl_naive_hash::NaiveHashPosition;
 use dfpn_solver::{generate_legal_moves, HashPosition, Solver, Table, INF};
 use shogi::{bitboard::Factory, Color, Move, Position};
 use shogi_converter::Record;
@@ -37,7 +37,7 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 fn solve(pos: Position) -> Vec<Move> {
-    let mut solver = Solver::new(NaiveHashPosition::new(pos), HashMapTable::new());
+    let mut solver = Solver::new(DefaultHashPosition::new(pos), HashMapTable::new());
     solver.dfpn();
 
     let mut moves = Vec::new();
