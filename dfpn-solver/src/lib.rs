@@ -2,27 +2,11 @@ pub mod impl_hashmap;
 pub mod impl_naive_hash;
 pub mod impl_zobrist_hash;
 
-use impl_hashmap::HashMapTable;
-use impl_naive_hash::NaiveHashPosition;
-use shogi::bitboard::Factory;
-use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square};
-use std::cmp::Reverse;
+use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Square};
 use std::hash::Hash;
 
 type U = u32;
-
-const MAX: U = U::MAX;
-
-pub fn solve(pos: &Position) -> Vec<Move> {
-    Factory::init();
-
-    let mut solver = Solver::new(NaiveHashPosition::from(pos), HashMapTable::<u64>::new());
-    solver.dfpn();
-
-    let mut moves = Vec::new();
-    solver.search_mate(&mut moves);
-    moves
-}
+pub const INF: U = U::MAX;
 
 pub trait HashPosition {
     type T: Eq + Hash + Copy;
@@ -44,8 +28,8 @@ pub trait Table {
 }
 
 pub struct Solver<HP, T> {
-    hp: HP,
-    t: T,
+    pub hp: HP,
+    pub t: T,
 }
 
 #[derive(Debug, Default)]
@@ -67,34 +51,13 @@ where
     pub fn dfpn(&mut self) {
         // ルートでの反復深化
         let mut pd = PD::default();
-        self.set_phi(&mut pd, MAX - 1);
-        self.set_delta(&mut pd, MAX - 1);
+        self.set_phi(&mut pd, INF - 1);
+        self.set_delta(&mut pd, INF - 1);
         self.mid(&mut pd);
-        if self.get_phi(&pd) != MAX && self.get_delta(&pd) != MAX {
-            self.set_phi(&mut pd, MAX);
-            self.set_delta(&mut pd, MAX);
+        if self.get_phi(&pd) != INF && self.get_delta(&pd) != INF {
+            self.set_phi(&mut pd, INF);
+            self.set_delta(&mut pd, INF);
             self.mid(&mut pd);
-        }
-    }
-    pub fn search_mate(&mut self, moves: &mut Vec<Move>) {
-        let mut v = generate_legal_moves(&mut self.hp)
-            .iter()
-            .map(|&(m, h)| (m, self.look_up_hash(&h)))
-            .collect::<Vec<_>>();
-        v.sort_by_cached_key(|&(_, (p, d))| match self.hp.side_to_move() {
-            Color::Black => (Reverse(p), d),
-            Color::White => (Reverse(d), p),
-        });
-        for &(m, (p, d)) in &v {
-            if (self.hp.side_to_move() == Color::Black && p == MAX)
-                || (self.hp.side_to_move() == Color::White && d == MAX)
-            {
-                moves.push(m);
-                self.hp.make_move(m).expect("failed to make move");
-                self.search_mate(moves);
-                self.hp.unmake_move().expect("failed to unmake move");
-                return;
-            }
         }
     }
     fn get_phi(&self, pd: &PD) -> U {
@@ -134,7 +97,7 @@ where
         let children = generate_legal_moves(&mut self.hp);
         if children.is_empty() {
             // ?
-            self.set_phi(pd, MAX);
+            self.set_phi(pd, INF);
             self.set_delta(pd, 0);
             self.put_in_hash((self.get_phi(pd), self.get_delta(pd)));
             return;
@@ -153,15 +116,15 @@ where
                 return;
             }
             let (best, phi_c, delta_c, delta_2) = self.select_child(&children);
-            let phi_n_c = if phi_c == MAX - 1 {
-                MAX
-            } else if self.get_delta(pd) >= MAX - 1 {
-                MAX - 1
+            let phi_n_c = if phi_c == INF - 1 {
+                INF
+            } else if self.get_delta(pd) >= INF - 1 {
+                INF - 1
             } else {
                 self.get_delta(pd) + phi_c - sp
             };
-            let delta_n_c = if delta_c == MAX - 1 {
-                MAX
+            let delta_n_c = if delta_c == INF - 1 {
+                INF
             } else {
                 (self.get_phi(pd)).min(delta_2.saturating_add(1))
             };
@@ -176,7 +139,7 @@ where
     }
     // 子ノードの選択
     fn select_child(&mut self, children: &[(Move, HP::T)]) -> (Option<Move>, U, U, U) {
-        let (mut delta_c, mut delta_2) = (MAX, MAX);
+        let (mut delta_c, mut delta_2) = (INF, INF);
         let mut best = None;
         let mut phi_c = None; // not optional?
         for &(m, h) in children {
@@ -189,7 +152,7 @@ where
             } else if d < delta_2 {
                 delta_2 = d;
             }
-            if p == MAX {
+            if p == INF {
                 return (best, phi_c.expect("phi_c"), delta_c, delta_2);
             }
         }
@@ -205,7 +168,7 @@ where
     }
     // n の子ノード の δ の最小を計算
     fn min_delta(&mut self, children: &[(Move, HP::T)]) -> U {
-        let mut min = MAX;
+        let mut min = INF;
         for &(_, h) in children {
             let (_, d) = self.look_up_hash(&h);
             min = min.min(d);
@@ -223,7 +186,7 @@ where
     }
 }
 
-fn generate_legal_moves<HP>(pos: &mut HP) -> Vec<(Move, HP::T)>
+pub fn generate_legal_moves<HP>(pos: &mut HP) -> Vec<(Move, HP::T)>
 where
     HP: HashPosition,
 {

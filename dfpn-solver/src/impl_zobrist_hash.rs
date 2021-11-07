@@ -18,10 +18,7 @@ where
     T: Default + Copy + BitXorAssign,
     Standard: Distribution<T>,
 {
-    pub fn new(p: &Position) -> Self {
-        let mut pos = Position::new();
-        pos.set_sfen(&p.to_sfen())
-            .expect("failed to parse SFEN string");
+    pub fn new(pos: Position) -> Self {
         // init table
         let mut rng = SmallRng::seed_from_u64(0);
         let mut table_board = [[[T::default(); 2]; 14]; 81];
