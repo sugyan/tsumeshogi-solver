@@ -14,7 +14,7 @@ where
     T: Eq + Hash,
 {
     pub fn new() -> Self {
-        HashMapTable {
+        Self {
             table: HashMap::new(),
         }
     }
@@ -34,5 +34,8 @@ where
     }
     fn put_in_hash(&mut self, key: Self::T, value: (U, U)) {
         self.table.insert(key, value);
+    }
+    fn len(&self) -> usize {
+        self.table.len()
     }
 }

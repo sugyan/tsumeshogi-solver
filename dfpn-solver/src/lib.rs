@@ -1,5 +1,6 @@
-pub mod impl_hashmap;
+pub mod impl_hashmap_table;
 pub mod impl_naive_hash;
+pub mod impl_vec_table;
 pub mod impl_zobrist_hash;
 
 use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Square};
@@ -25,6 +26,7 @@ pub trait Table {
     type T;
     fn look_up_hash(&self, key: &Self::T) -> (U, U);
     fn put_in_hash(&mut self, key: Self::T, value: (U, U));
+    fn len(&self) -> usize;
 }
 
 pub struct Solver<HP, T> {
@@ -229,9 +231,42 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::impl_hashmap_table::HashMapTable;
+    use crate::impl_naive_hash::NaiveHashPosition;
+    use crate::impl_vec_table::VecTable;
+    use crate::impl_zobrist_hash::ZobristHashPosition;
+    use shogi::bitboard::Factory;
+    use shogi::Position;
+
     #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
+    fn test_impl() {
+        Factory::init();
+        let sfen = "3sks3/9/4S4/9/1+B7/9/9/9/9 b S2rb4g4n4l18p 1";
+
+        // naive + hashmap
+        {
+            let mut pos = Position::new();
+            pos.set_sfen(sfen).expect("failed to parse SFEN string");
+            let mut solver = Solver::new(NaiveHashPosition::new(pos), HashMapTable::new());
+            solver.dfpn();
+            assert_eq!(171, solver.t.len());
+        }
+        // zobrist + hashmap
+        {
+            let mut pos = Position::new();
+            pos.set_sfen(sfen).expect("failed to parse SFEN string");
+            let mut solver = Solver::new(ZobristHashPosition::new(pos), HashMapTable::<u64>::new());
+            solver.dfpn();
+            assert_eq!(171, solver.t.len());
+        }
+        // zobrist + vec
+        {
+            let mut pos = Position::new();
+            pos.set_sfen(sfen).expect("failed to parse SFEN string");
+            let mut solver = Solver::new(ZobristHashPosition::new(pos), VecTable::new(16));
+            solver.dfpn();
+            assert_eq!(171, solver.t.len());
+        }
     }
 }

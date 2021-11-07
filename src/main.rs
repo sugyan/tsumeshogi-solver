@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 use csa::parse_csa;
-use dfpn_solver::impl_hashmap::HashMapTable;
-use dfpn_solver::impl_zobrist_hash::ZobristHashPosition;
+use dfpn_solver::impl_hashmap_table::HashMapTable;
+use dfpn_solver::impl_naive_hash::NaiveHashPosition;
 use dfpn_solver::{generate_legal_moves, HashPosition, Solver, Table, INF};
 use shogi::{bitboard::Factory, Color, Move, Position};
 use shogi_converter::Record;
@@ -37,7 +37,7 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 fn solve(pos: Position) -> Vec<Move> {
-    let mut solver = Solver::new(ZobristHashPosition::new(pos), HashMapTable::<u64>::new());
+    let mut solver = Solver::new(NaiveHashPosition::new(pos), HashMapTable::new());
     solver.dfpn();
 
     let mut moves = Vec::new();
@@ -98,7 +98,7 @@ mod tests {
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
 
             let ret = solve(pos);
-            assert!(!ret.is_empty())
+            assert!(ret.len() % 2 == 1);
         }
     }
 }
