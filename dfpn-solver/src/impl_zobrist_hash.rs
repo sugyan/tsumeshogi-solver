@@ -10,7 +10,7 @@ pub struct ZobristHashPosition<T> {
     table_board: [[[T; 2]; 14]; 81],
     table_hand: [[[T; 19]; 2]; 14],
     table_turn: [T; 2],
-    hash: T,
+    hash_history: Vec<T>,
 }
 
 impl<T> ZobristHashPosition<T>
@@ -22,7 +22,6 @@ where
         let mut pos = Position::new();
         pos.set_sfen(&p.to_sfen())
             .expect("failed to parse SFEN string");
-
         // init table
         let mut rng = SmallRng::seed_from_u64(0);
         let mut table_board = [[[T::default(); 2]; 14]; 81];
@@ -64,7 +63,7 @@ where
             table_board,
             table_hand,
             table_turn,
-            hash,
+            hash_history: vec![hash],
         }
     }
 }
@@ -81,17 +80,51 @@ where
         self.pos.in_check(c)
     }
     fn make_move(&mut self, m: Move) -> Result<(), MoveError> {
+        let (prev_from, prev_to) = if let Move::Normal {
+            from,
+            to,
+            promote: _,
+        } = m
+        {
+            (*self.pos.piece_at(from), *self.pos.piece_at(to))
+        } else {
+            (None, None)
+        };
         match self.pos.make_move(m) {
             Ok(_) => {
-                // TODO: update hash
+                let mut hash = self.to_hash();
                 match m {
-                    Move::Normal { from, to, promote } => {
-                        println!("{} {} {}", from, to, promote);
+                    Move::Normal {
+                        from,
+                        to,
+                        promote: _,
+                    } => {
+                        if let Some(p) = prev_from {
+                            hash ^= self.table_board[from.index()][p.piece_type.index()]
+                                [p.color.index()];
+                        }
+                        if let Some(p) = prev_to {
+                            hash ^=
+                                self.table_board[to.index()][p.piece_type.index()][p.color.index()];
+                        }
+                        if let Some(p) = self.pos.piece_at(to) {
+                            hash ^=
+                                self.table_board[to.index()][p.piece_type.index()][p.color.index()];
+                        }
                     }
                     Move::Drop { to, piece_type } => {
-                        println!("{} {}", to, piece_type);
+                        if let Some(p) = self.pos.piece_at(to) {
+                            hash ^=
+                                self.table_board[to.index()][p.piece_type.index()][p.color.index()];
+                        }
+                        let color = self.pos.side_to_move().flip();
+                        let num = self.pos.hand(Piece { piece_type, color }) as usize;
+                        hash ^= self.table_hand[piece_type.index()][color.index()][num];
+                        hash ^= self.table_hand[piece_type.index()][color.index()][num + 1];
                     }
                 }
+                Color::iter().for_each(|color| hash ^= self.table_turn[color.index()]);
+                self.hash_history.push(hash);
                 Ok(())
             }
             Err(e) => Err(e),
@@ -110,16 +143,15 @@ where
         self.pos.side_to_move()
     }
     fn unmake_move(&mut self) -> Result<(), MoveError> {
-        let last = self.pos.move_history().last().unwrap();
         match self.pos.unmake_move() {
             Ok(_) => {
-                // TODO: update hash
+                self.hash_history.pop();
                 Ok(())
             }
             Err(e) => Err(e),
         }
     }
     fn to_hash(&self) -> V {
-        self.hash
+        *self.hash_history.last().expect("latest hash has not found")
     }
 }
