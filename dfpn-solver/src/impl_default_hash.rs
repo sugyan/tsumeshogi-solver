@@ -47,7 +47,7 @@ impl HashPosition for DefaultHashPosition {
 impl Hash for DefaultHashPosition {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Square::iter().for_each(|sq| {
-            self.0.piece_at(sq).map_or(28, |p| p8(p)).hash(state);
+            self.0.piece_at(sq).map_or(28, p8).hash(state);
         });
         PieceType::iter().for_each(|piece_type| {
             Color::iter().for_each(|color| self.0.hand(Piece { piece_type, color }).hash(state))

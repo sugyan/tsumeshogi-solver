@@ -201,7 +201,7 @@ where
             for to in pos.move_candidates(from, *p) {
                 for promote in [true, false] {
                     let m = Move::Normal { from, to, promote };
-                    if let Ok(_) = pos.make_move(m) {
+                    if pos.make_move(m).is_ok() {
                         if color == Color::White || pos.in_check(Color::White) {
                             children.push((m, pos.to_hash()));
                         }
@@ -222,7 +222,7 @@ where
     }) {
         match color {
             Color::Black => {
-                for piece_type in PieceType::iter().filter(|p| p.is_hand_piece()) {
+                for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
                     if pos.hand(Piece { piece_type, color }) == 0 {
                         continue;
                     }
@@ -235,7 +235,7 @@ where
                         },
                     ) {
                         let m = Move::Drop { to, piece_type };
-                        if let Ok(_) = pos.make_move(m) {
+                        if pos.make_move(m).is_ok() {
                             if color == Color::White || pos.in_check(Color::White) {
                                 children.push((m, pos.to_hash()));
                             }
@@ -259,7 +259,7 @@ where
                         color: Color::White,
                     },
                 );
-                for piece_type in PieceType::iter().filter(|p| p.is_hand_piece()) {
+                for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
                     if pos.hand(Piece { piece_type, color }) == 0 {
                         continue;
                     }
