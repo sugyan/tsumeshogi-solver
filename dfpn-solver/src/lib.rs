@@ -212,17 +212,76 @@ where
         }
     }
     // drop moves
-    for piece_type in PieceType::iter().filter(|p| p.is_hand_piece()) {
-        if pos.hand(Piece { piece_type, color }) == 0 {
-            continue;
-        }
-        for to in Square::iter() {
-            let m = Move::Drop { to, piece_type };
-            if let Ok(_) = pos.make_move(m) {
-                if color == Color::White || pos.in_check(Color::White) {
-                    children.push((m, pos.to_hash()));
+    if let Some(king_sq) = pos.player_bb(Color::White).into_iter().find(|sq| {
+        // want to use pos.find_king()...
+        pos.piece_at(*sq)
+            == &Some(Piece {
+                piece_type: PieceType::King,
+                color: Color::White,
+            })
+    }) {
+        match color {
+            Color::Black => {
+                for piece_type in PieceType::iter().filter(|p| p.is_hand_piece()) {
+                    if pos.hand(Piece { piece_type, color }) == 0 {
+                        continue;
+                    }
+                    // 玉をその駒で狙える位置のみ探索
+                    for to in pos.move_candidates(
+                        king_sq,
+                        Piece {
+                            piece_type,
+                            color: Color::White,
+                        },
+                    ) {
+                        let m = Move::Drop { to, piece_type };
+                        if let Ok(_) = pos.make_move(m) {
+                            if color == Color::White || pos.in_check(Color::White) {
+                                children.push((m, pos.to_hash()));
+                            }
+                            pos.unmake_move().expect("failed to unmake move");
+                        }
+                    }
                 }
-                pos.unmake_move().expect("failed to unmake move");
+            }
+            Color::White => {
+                // 玉から飛車角で狙われ得る位置の候補
+                let mut candidates = &pos.move_candidates(
+                    king_sq,
+                    Piece {
+                        piece_type: PieceType::Rook,
+                        color: Color::White,
+                    },
+                ) | &pos.move_candidates(
+                    king_sq,
+                    Piece {
+                        piece_type: PieceType::Bishop,
+                        color: Color::White,
+                    },
+                );
+                for piece_type in PieceType::iter().filter(|p| p.is_hand_piece()) {
+                    if pos.hand(Piece { piece_type, color }) == 0 {
+                        continue;
+                    }
+                    for to in candidates {
+                        let m = Move::Drop { to, piece_type };
+                        match pos.make_move(m) {
+                            Ok(_) => {
+                                if color == Color::White || pos.in_check(Color::White) {
+                                    children.push((m, pos.to_hash()));
+                                }
+                                pos.unmake_move().expect("failed to unmake move");
+                            }
+                            Err(MoveError::InCheck) => {
+                                // 合駒として機能しない位置は候補から外す
+                                candidates.clear_at(to);
+                            }
+                            Err(_) => {
+                                // ignore
+                            }
+                        }
+                    }
+                }
             }
         }
     }
