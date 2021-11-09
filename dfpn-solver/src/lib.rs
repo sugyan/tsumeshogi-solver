@@ -27,6 +27,7 @@ pub trait Table {
     fn look_up_hash(&self, key: &Self::T) -> (U, U);
     fn put_in_hash(&mut self, key: Self::T, value: (U, U));
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool;
 }
 
 pub struct Solver<HP, T> {
@@ -308,6 +309,7 @@ mod tests {
             let mut pos = Position::new();
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
             let mut solver = Solver::new(DefaultHashPosition::new(pos), HashMapTable::new());
+            assert!(solver.t.is_empty());
             solver.dfpn();
             assert_eq!(171, solver.t.len());
         }
@@ -315,7 +317,8 @@ mod tests {
         {
             let mut pos = Position::new();
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
-            let mut solver = Solver::new(ZobristHashPosition::new(pos), HashMapTable::<u64>::new());
+            let mut solver = Solver::new(ZobristHashPosition::<u64>::new(pos), HashMapTable::new());
+            assert!(solver.t.is_empty());
             solver.dfpn();
             assert_eq!(171, solver.t.len());
         }
@@ -324,6 +327,7 @@ mod tests {
             let mut pos = Position::new();
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
             let mut solver = Solver::new(ZobristHashPosition::new(pos), VecTable::new(16));
+            assert!(solver.t.is_empty());
             solver.dfpn();
             assert_eq!(171, solver.t.len());
         }

@@ -20,6 +20,15 @@ where
     }
 }
 
+impl<T> Default for HashMapTable<T>
+where
+    T: Eq + Hash,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<V> Table for HashMapTable<V>
 where
     V: Eq + Hash,
@@ -37,5 +46,8 @@ where
     }
     fn len(&self) -> usize {
         self.table.len()
+    }
+    fn is_empty(&self) -> bool {
+        self.table.is_empty()
     }
 }

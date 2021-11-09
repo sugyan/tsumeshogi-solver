@@ -30,4 +30,7 @@ impl Table for VecTable {
     fn len(&self) -> usize {
         self.len
     }
+    fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 }
