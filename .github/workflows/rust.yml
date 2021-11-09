@@ -32,9 +32,11 @@ jobs:
       uses: actions-rs/clippy-check@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        name: clippy-main
         args: --all-features
     - name: Run clippy for dfpn-solver
       uses: actions-rs/clippy-check@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        name: clippy-dfpn-solver
         args: --all-features --manifest-path ./dfpn-solver/Cargo.toml
