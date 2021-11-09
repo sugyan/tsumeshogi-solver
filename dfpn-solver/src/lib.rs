@@ -35,12 +35,6 @@ pub struct Solver<HP, T> {
     pub t: T,
 }
 
-#[derive(Debug, Default)]
-struct PD {
-    pn: U,
-    dn: U,
-}
-
 impl<HP, T> Solver<HP, T>
 where
     HP: HashPosition,
@@ -53,90 +47,79 @@ where
     // https://ci.nii.ac.jp/naid/110002726401
     pub fn dfpn(&mut self) {
         // ルートでの反復深化
-        let mut pd = PD::default();
-        self.set_phi(&mut pd, INF - 1);
-        self.set_delta(&mut pd, INF - 1);
-        self.mid(&mut pd);
-        if self.get_phi(&pd) != INF && self.get_delta(&pd) != INF {
-            self.set_phi(&mut pd, INF);
-            self.set_delta(&mut pd, INF);
-            self.mid(&mut pd);
+        let (pn, dn) = self.mid(&(INF - 1, INF - 1));
+        if pn != INF && dn != INF {
+            self.mid(&(INF, INF));
         }
     }
-    fn get_phi(&self, pd: &PD) -> U {
+    fn phi(&self, pd: &(U, U)) -> U {
         match self.hp.side_to_move() {
-            Color::Black => pd.pn,
-            Color::White => pd.dn,
+            Color::Black => pd.0,
+            Color::White => pd.1,
         }
     }
-    fn get_delta(&self, pd: &PD) -> U {
+    fn delta(&self, pd: &(U, U)) -> U {
         match self.hp.side_to_move() {
-            Color::Black => pd.dn,
-            Color::White => pd.pn,
-        }
-    }
-    fn set_phi(&self, pd: &mut PD, val: U) {
-        match self.hp.side_to_move() {
-            Color::Black => pd.pn = val,
-            Color::White => pd.dn = val,
-        }
-    }
-    fn set_delta(&self, pd: &mut PD, val: U) {
-        match self.hp.side_to_move() {
-            Color::Black => pd.dn = val,
-            Color::White => pd.pn = val,
+            Color::Black => pd.1,
+            Color::White => pd.0,
         }
     }
     // ノードの展開
-    fn mid(&mut self, pd: &mut PD) {
+    fn mid(&mut self, pd: &(U, U)) -> (U, U) {
         // 1. ハッシュを引く
         let (p, d) = self.look_up_hash(&self.hp.to_hash());
-        if self.get_phi(pd) <= p || self.get_delta(pd) <= d {
-            self.set_phi(pd, p);
-            self.set_delta(pd, d);
-            return;
+        if self.phi(pd) <= p || self.delta(pd) <= d {
+            return match self.hp.side_to_move() {
+                Color::Black => (p, d),
+                Color::White => (d, p),
+            };
         }
         // 2. 合法手の生成
         let children = generate_legal_moves(&mut self.hp);
         if children.is_empty() {
             // ?
-            self.set_phi(pd, INF);
-            self.set_delta(pd, 0);
-            self.put_in_hash((self.get_phi(pd), self.get_delta(pd)));
-            return;
+            self.put_in_hash((INF, 0));
+            return match self.hp.side_to_move() {
+                Color::Black => (INF, 0),
+                Color::White => (0, INF),
+            };
         }
         // 3. ハッシュによるサイクル回避
-        self.put_in_hash((self.get_phi(pd), self.get_delta(pd)));
+        match self.hp.side_to_move() {
+            Color::Black => self.put_in_hash((pd.0, pd.1)),
+            Color::White => self.put_in_hash((pd.1, pd.0)),
+        }
         // 4. 多重反復深化
         loop {
             // φ か δ がそのしきい値以上なら探索終了
             let md = self.min_delta(&children);
             let sp = self.sum_phi(&children);
-            if self.get_phi(pd) <= md || self.get_delta(pd) <= sp {
-                self.set_phi(pd, md);
-                self.set_delta(pd, sp);
-                self.put_in_hash((self.get_phi(pd), self.get_delta(pd)));
-                return;
+            if self.phi(pd) <= md || self.delta(pd) <= sp {
+                self.put_in_hash((md, sp));
+                return match self.hp.side_to_move() {
+                    Color::Black => (md, sp),
+                    Color::White => (sp, md),
+                };
             }
             let (best, phi_c, delta_c, delta_2) = self.select_child(&children);
             let phi_n_c = if phi_c == INF - 1 {
                 INF
-            } else if self.get_delta(pd) >= INF - 1 {
+            } else if self.delta(pd) >= INF - 1 {
                 INF - 1
             } else {
-                self.get_delta(pd) + phi_c - sp
+                self.delta(pd) + phi_c - sp
             };
             let delta_n_c = if delta_c == INF - 1 {
                 INF
             } else {
-                (self.get_phi(pd)).min(delta_2.saturating_add(1))
+                (self.phi(pd)).min(delta_2.saturating_add(1))
             };
             let m = best.expect("best move");
             self.hp.make_move(m).expect("failed to make move");
-            let mut pd_c = PD::default();
-            self.set_phi(&mut pd_c, phi_n_c);
-            self.set_delta(&mut pd_c, delta_n_c);
-            self.mid(&mut pd_c);
+            match self.hp.side_to_move() {
+                Color::Black => self.mid(&(phi_n_c, delta_n_c)),
+                Color::White => self.mid(&(delta_n_c, phi_n_c)),
+            };
             self.hp.unmake_move().expect("failed to unmake move");
         }
     }
