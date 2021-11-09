@@ -3,7 +3,7 @@ use csa::parse_csa;
 use dfpn_solver::impl_default_hash::DefaultHashPosition;
 use dfpn_solver::impl_hashmap_table::HashMapTable;
 use dfpn_solver::{generate_legal_moves, HashPosition, Solver, Table, INF};
-use shogi::{bitboard::Factory, Color, Move, Position};
+use shogi::{bitboard::Factory, Color, Move, Piece, PieceType, Position};
 use shogi_converter::Record;
 use std::{cmp::Reverse, fs::File, io::Read};
 
@@ -37,37 +37,86 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 fn solve(pos: Position) -> Vec<Move> {
+    let sfen = pos.to_sfen();
     let mut solver = Solver::new(DefaultHashPosition::new(pos), HashMapTable::new());
     solver.dfpn();
 
-    let mut moves = Vec::new();
-    search_mate(&mut solver, &mut moves);
-    moves
+    let mut answers = Vec::new();
+    search_all_mates(&mut solver, &mut Vec::new(), &mut answers);
+
+    let mut candidates = Vec::with_capacity(answers.len());
+    for (moves, len) in &answers {
+        let mut pos = Position::new();
+        pos.set_sfen(&sfen).expect("failed to parse SFEN string");
+        for &m in moves {
+            pos.make_move(m).expect("failed to make move");
+        }
+        let hands = PieceType::iter()
+            .filter(|pt| pt.is_hand_piece())
+            .map(|piece_type| {
+                pos.hand(Piece {
+                    piece_type,
+                    color: pos.side_to_move().flip(),
+                })
+            })
+            .sum::<u8>();
+        candidates.push((moves, len, hands));
+    }
+    candidates.sort_by_cached_key(|&(moves, len, hands)| (Reverse(moves.len() - len), hands));
+    candidates[0].0.clone()
 }
 
-fn search_mate<HP, T>(s: &mut Solver<HP, T>, moves: &mut Vec<Move>)
-where
+fn search_all_mates<HP, T>(
+    s: &mut Solver<HP, T>,
+    moves: &mut Vec<Move>,
+    answers: &mut Vec<(Vec<Move>, usize)>,
+) where
     HP: HashPosition,
     T: Table<T = HP::T>,
 {
-    let mut v = generate_legal_moves(&mut s.hp)
-        .iter()
-        .map(|&(m, h)| (m, s.t.look_up_hash(&h)))
-        .collect::<Vec<_>>();
-    v.sort_by_cached_key(|&(_, (p, d))| match s.hp.side_to_move() {
-        Color::Black => (Reverse(p), d),
-        Color::White => (Reverse(d), p),
-    });
-    for &(m, (p, d)) in &v {
-        if (s.hp.side_to_move() == Color::Black && p == INF)
-            || (s.hp.side_to_move() == Color::White && d == INF)
+    let mut leaf = true;
+    for &(m, h) in &generate_legal_moves(&mut s.hp) {
+        let pd = s.t.look_up_hash(&h);
+        if (s.hp.side_to_move() == Color::Black && pd == (INF, 0))
+            || (s.hp.side_to_move() == Color::White && pd == (0, INF))
         {
+            leaf = false;
             moves.push(m);
             s.hp.make_move(m).expect("failed to make move");
-            search_mate(s, moves);
+            search_all_mates(s, moves, answers);
             s.hp.unmake_move().expect("failed to unmake move");
-            return;
+            moves.pop();
         }
+    }
+    if leaf {
+        // TODO: 無駄合駒判定
+        let mut len = 0;
+        for (i, &m) in moves.iter().enumerate().take(moves.len() - 1) {
+            // 玉方が合駒を打ち、
+            if i & 1 > 0 {
+                if let Move::Drop { to: t0, piece_type } = m {
+                    // 攻方が直後にその合駒を取り、
+                    if let Move::Normal {
+                        from: _,
+                        to: t1,
+                        promote: _,
+                    } = moves[i + 1]
+                    {
+                        // 最終的な攻方の持駒にその駒が存在しているなら、無駄合駒として
+                        // 2手余分に動かしたとみなす
+                        if t0 == t1
+                            && s.hp.hand(Piece {
+                                piece_type,
+                                color: s.hp.side_to_move().flip(),
+                            }) > 0
+                        {
+                            len += 2;
+                        }
+                    }
+                }
+            }
+        }
+        answers.push((moves.clone(), len));
     }
 }
 
