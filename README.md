@@ -2,8 +2,11 @@
 
 # tsumeshogi-solver
 
+![image](https://user-images.githubusercontent.com/80381/141100660-f7ee4c34-ec04-46c4-b703-52b50bcd39bf.png)
+
+
 ```
-cargo run -- <csa file>
+cargo run <csa file>
 ```
 
 
