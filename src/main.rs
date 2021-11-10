@@ -37,39 +37,22 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 fn solve(pos: Position) -> Vec<Move> {
-    let sfen = pos.to_sfen();
     let mut solver = Solver::new(DefaultHashPosition::new(pos), HashMapTable::new());
     solver.dfpn();
 
     let mut answers = Vec::new();
     search_all_mates(&mut solver, &mut Vec::new(), &mut answers);
 
-    let mut candidates = Vec::with_capacity(answers.len());
-    for (moves, len) in &answers {
-        let mut pos = Position::new();
-        pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-        for &m in moves {
-            pos.make_move(m).expect("failed to make move");
-        }
-        let hands = PieceType::iter()
-            .filter(|pt| pt.is_hand_piece())
-            .map(|piece_type| {
-                pos.hand(Piece {
-                    piece_type,
-                    color: pos.side_to_move().flip(),
-                })
-            })
-            .sum::<u8>();
-        candidates.push((moves, len, hands));
-    }
-    candidates.sort_by_cached_key(|&(moves, len, hands)| (Reverse(moves.len() - len), hands));
-    candidates[0].0.clone()
+    answers.sort_by_cached_key(|(moves, hands)| (Reverse(moves.len()), *hands));
+    answers
+        .get(0)
+        .map_or(Vec::new(), |(moves, _)| moves.clone())
 }
 
 fn search_all_mates<HP, T>(
     s: &mut Solver<HP, T>,
     moves: &mut Vec<Move>,
-    answers: &mut Vec<(Vec<Move>, usize)>,
+    answers: &mut Vec<(Vec<Move>, u8)>,
 ) where
     HP: HashPosition,
     T: Table<T = HP::T>,
@@ -89,34 +72,54 @@ fn search_all_mates<HP, T>(
         }
     }
     if leaf {
-        // TODO: 無駄合駒判定
-        let mut len = 0;
-        for (i, &m) in moves.iter().enumerate().take(moves.len() - 1) {
-            // 玉方が合駒を打ち、
-            if i & 1 > 0 {
-                if let Move::Drop { to: t0, piece_type } = m {
-                    // 攻方が直後にその合駒を取り、
+        // 無駄合駒判定
+        // 1. 玉方が合駒として打った駒が後に取られて
+        // 2. 最終的に攻方の持駒に入っている
+        // を満たす場合に解答候補から外す
+        let mut drops = vec![None; 81];
+        for (i, &m) in moves.iter().enumerate() {
+            match i & 1 {
+                0 => {
                     if let Move::Normal {
                         from: _,
-                        to: t1,
+                        to,
                         promote: _,
-                    } = moves[i + 1]
+                    } = m
                     {
-                        // 最終的な攻方の持駒にその駒が存在しているなら、無駄合駒として
-                        // 2手余分に動かしたとみなす
-                        if t0 == t1
-                            && s.hp.hand(Piece {
+                        if let Some(piece_type) = drops[to.index()].take() {
+                            if s.hp.hand(Piece {
                                 piece_type,
                                 color: s.hp.side_to_move().flip(),
                             }) > 0
-                        {
-                            len += 2;
+                            {
+                                return;
+                            }
                         }
                     }
                 }
+                1 => {
+                    if let Move::Drop { to, piece_type } = m {
+                        drops[to.index()] = Some(piece_type);
+                    }
+                }
+                _ => {}
             }
         }
-        answers.push((moves.clone(), len));
+        answers.push((
+            moves.clone(),
+            PieceType::iter()
+                .filter_map(|piece_type| {
+                    if piece_type.is_hand_piece() {
+                        Some(s.hp.hand(Piece {
+                            piece_type,
+                            color: s.hp.side_to_move().flip(),
+                        }))
+                    } else {
+                        None
+                    }
+                })
+                .sum::<u8>(),
+        ));
     }
 }
 
@@ -171,8 +174,8 @@ mod tests {
             "lnsg4l/1r1b5/p1pp1+N1+R1/4p3p/9/P3SSk2/NpPPPPg1P/2GK5/L1S4NL b 2Pbg4p 91",
             "l3k2G1/1+B4gPl/n2+Nppsp1/pP2R2bp/9/Pps1P1N1P/2GG1P3/3S5/LNK5L b R6Ps 97",
             "lnkgp1+R1l/1rs4+P1/p1ppG2p1/4N3p/3S5/P7P/2+lPP4/2G1KP3/L1S4+b1 b BN2Pgsn4p 83",
-            "3g2S1l/3s2k2/3ppplpp/2p3R2/rP7/1LP1P2P1/N2P1P2P/2GSG4/3KN2NL b BG4Pbsnp 89",
             "l1G1k2nl/2Rs2+R2/pp2bp2p/4p1p2/1n1p1N2P/4P1P2/PPG1SP3/2p1G4/LN1K1s2L b 3Pbgsp 85",
+            "lR5nl/4gs3/5p1k1/2PpP3p/p4N1P1/6P1P/PP+bP1P3/4K1G2/L1G3S1+r b GSN5Pbsnl 105",
             // mate5
             "ln5+Pl/3s1kg+R1/p2ppl2p/2ps1Bp2/P8/2P3P1P/N2gP4/5KS2/L+r3G1N+b b GS3Pn3p 57",
             "l3k3l/1r1sg1B2/3p2+R1p/2p1pN2P/9/pPP1PP3/3PK1P2/2G1sg3/LNS2+n1NL b 5Pbgsp 69",
