@@ -173,13 +173,11 @@ pub fn generate_legal_moves<P>(pos: &mut P) -> Vec<(Move, P::T)>
 where
     P: HashPosition,
 {
-    let color = pos.side_to_move();
-    let &bb = pos.player_bb(color);
     let mut children = Vec::new();
     // normal moves
-    for from in bb {
-        if let Some(p) = pos.piece_at(from) {
-            for to in pos.move_candidates(from, *p) {
+    for from in *pos.player_bb(pos.side_to_move()) {
+        if let Some(p) = *pos.piece_at(from) {
+            for to in pos.move_candidates(from, p) {
                 for promote in [true, false] {
                     let m = Move::Normal { from, to, promote };
                     if let Ok(h) = try_legal_move(pos, m) {
@@ -198,10 +196,14 @@ where
                 color: Color::White,
             })
     }) {
-        match color {
+        match pos.side_to_move() {
             Color::Black => {
                 for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
-                    if pos.hand(Piece { piece_type, color }) == 0 {
+                    if pos.hand(Piece {
+                        piece_type,
+                        color: Color::Black,
+                    }) == 0
+                    {
                         continue;
                     }
                     // 玉をその駒で狙える位置のみ探索
@@ -235,7 +237,11 @@ where
                     },
                 );
                 for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
-                    if pos.hand(Piece { piece_type, color }) == 0 {
+                    if pos.hand(Piece {
+                        piece_type,
+                        color: Color::White,
+                    }) == 0
+                    {
                         continue;
                     }
                     for to in candidates {
