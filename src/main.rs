@@ -28,6 +28,8 @@ fn main() -> Result<(), std::io::Error> {
 
         let mut pos = Position::new();
         pos.set_sfen(&sfen).expect("failed to parse SFEN string");
+        println!("{}", pos);
+        println!();
         println!(
             "{:?}",
             solve(pos).iter().map(|p| p.to_string()).collect::<Vec<_>>()
@@ -49,25 +51,25 @@ fn solve(pos: Position) -> Vec<Move> {
         .map_or(Vec::new(), |(moves, _)| moves.clone())
 }
 
-fn search_all_mates<HP, T>(
-    s: &mut Solver<HP, T>,
+fn search_all_mates<P, T>(
+    s: &mut Solver<P, T>,
     moves: &mut Vec<Move>,
     answers: &mut Vec<(Vec<Move>, u8)>,
 ) where
-    HP: HashPosition,
-    T: Table<T = HP::T>,
+    P: HashPosition,
+    T: Table<T = P::T>,
 {
     let mut leaf = true;
-    for &(m, h) in &generate_legal_moves(&mut s.hp) {
-        let pd = s.t.look_up_hash(&h);
-        if (s.hp.side_to_move() == Color::Black && pd == (INF, 0))
-            || (s.hp.side_to_move() == Color::White && pd == (0, INF))
+    for &(m, h) in &generate_legal_moves(&mut s.pos) {
+        let pd = s.table.look_up_hash(&h);
+        if (s.pos.side_to_move() == Color::Black && pd == (INF, 0))
+            || (s.pos.side_to_move() == Color::White && pd == (0, INF))
         {
             leaf = false;
             moves.push(m);
-            s.hp.make_move(m).expect("failed to make move");
+            s.pos.make_move(m).expect("failed to make move");
             search_all_mates(s, moves, answers);
-            s.hp.unmake_move().expect("failed to unmake move");
+            s.pos.unmake_move().expect("failed to unmake move");
             moves.pop();
         }
     }
@@ -87,9 +89,9 @@ fn search_all_mates<HP, T>(
                     } = m
                     {
                         if let Some(piece_type) = drops[to.index()].take() {
-                            if s.hp.hand(Piece {
+                            if s.pos.hand(Piece {
                                 piece_type,
-                                color: s.hp.side_to_move().flip(),
+                                color: s.pos.side_to_move().flip(),
                             }) > 0
                             {
                                 return;
@@ -110,9 +112,9 @@ fn search_all_mates<HP, T>(
             PieceType::iter()
                 .filter_map(|piece_type| {
                     if piece_type.is_hand_piece() {
-                        Some(s.hp.hand(Piece {
+                        Some(s.pos.hand(Piece {
                             piece_type,
-                            color: s.hp.side_to_move().flip(),
+                            color: s.pos.side_to_move().flip(),
                         }))
                     } else {
                         None

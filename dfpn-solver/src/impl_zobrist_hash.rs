@@ -73,8 +73,8 @@ where
     fn hand(&self, p: Piece) -> u8 {
         self.pos.hand(p)
     }
-    fn in_check(&self, c: Color) -> bool {
-        self.pos.in_check(c)
+    fn in_check(&self, color: Color) -> bool {
+        self.pos.in_check(color)
     }
     fn make_move(&mut self, m: Move) -> Result<(), MoveError> {
         let (prev_from, prev_to) = if let Move::Normal {
@@ -89,7 +89,7 @@ where
         };
         match self.pos.make_move(m) {
             Ok(_) => {
-                let mut hash = self.to_hash();
+                let mut h = self.current_hash();
                 match m {
                     Move::Normal {
                         from,
@@ -97,31 +97,31 @@ where
                         promote: _,
                     } => {
                         if let Some(p) = prev_from {
-                            hash ^= self.table_board[from.index()][p.piece_type.index()]
+                            h ^= self.table_board[from.index()][p.piece_type.index()]
                                 [p.color.index()];
                         }
                         if let Some(p) = prev_to {
-                            hash ^=
+                            h ^=
                                 self.table_board[to.index()][p.piece_type.index()][p.color.index()];
                         }
                         if let Some(p) = self.pos.piece_at(to) {
-                            hash ^=
+                            h ^=
                                 self.table_board[to.index()][p.piece_type.index()][p.color.index()];
                         }
                     }
                     Move::Drop { to, piece_type } => {
                         if let Some(p) = self.pos.piece_at(to) {
-                            hash ^=
+                            h ^=
                                 self.table_board[to.index()][p.piece_type.index()][p.color.index()];
                         }
                         let color = self.pos.side_to_move().flip();
                         let num = self.pos.hand(Piece { piece_type, color }) as usize;
-                        hash ^= self.table_hand[piece_type.index()][color.index()][num];
-                        hash ^= self.table_hand[piece_type.index()][color.index()][num + 1];
+                        h ^= self.table_hand[piece_type.index()][color.index()][num];
+                        h ^= self.table_hand[piece_type.index()][color.index()][num + 1];
                     }
                 }
-                Color::iter().for_each(|color| hash ^= self.table_turn[color.index()]);
-                self.hash_history.push(hash);
+                Color::iter().for_each(|color| h ^= self.table_turn[color.index()]);
+                self.hash_history.push(h);
                 Ok(())
             }
             Err(e) => Err(e),
@@ -148,7 +148,8 @@ where
             Err(e) => Err(e),
         }
     }
-    fn to_hash(&self) -> V {
+
+    fn current_hash(&self) -> V {
         *self.hash_history.last().expect("latest hash has not found")
     }
 }

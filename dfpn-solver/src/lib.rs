@@ -12,82 +12,87 @@ pub const INF: U = U::MAX;
 pub trait HashPosition {
     type T: Eq + Hash + Copy;
     fn hand(&self, p: Piece) -> u8;
-    fn in_check(&self, c: Color) -> bool;
+    fn in_check(&self, color: Color) -> bool;
     fn make_move(&mut self, m: Move) -> Result<(), MoveError>;
     fn move_candidates(&self, sq: Square, p: Piece) -> Bitboard;
     fn piece_at(&self, sq: Square) -> &Option<Piece>;
     fn player_bb(&self, c: Color) -> &Bitboard;
     fn side_to_move(&self) -> Color;
     fn unmake_move(&mut self) -> Result<(), MoveError>;
-    fn to_hash(&self) -> Self::T;
+
+    fn current_hash(&self) -> Self::T;
 }
 
 pub trait Table {
     type T;
+    // ハッシュを引く (本当は優越関係が使える)
     fn look_up_hash(&self, key: &Self::T) -> (U, U);
+    // ハッシュに記録
     fn put_in_hash(&mut self, key: Self::T, value: (U, U));
+
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
 }
 
-pub struct Solver<HP, T> {
-    pub hp: HP,
-    pub t: T,
+pub struct Solver<P, T> {
+    pub pos: P,
+    pub table: T,
 }
 
-impl<HP, T> Solver<HP, T>
+impl<P, T> Solver<P, T>
 where
-    HP: HashPosition,
-    T: Table<T = HP::T>,
+    P: HashPosition,
+    T: Table<T = P::T>,
 {
-    pub fn new(hp: HP, t: T) -> Self {
-        Self { hp, t }
+    pub fn new(pos: P, table: T) -> Self {
+        Self { pos, table }
     }
     // 「df-pnアルゴリズムの詰将棋を解くプログラムへの応用」
     // https://ci.nii.ac.jp/naid/110002726401
     pub fn dfpn(&mut self) {
+        let hash = self.pos.current_hash();
         // ルートでの反復深化
-        let (pn, dn) = self.mid(&(INF - 1, INF - 1));
+        let (pn, dn) = self.mid(hash, &(INF - 1, INF - 1));
         if pn != INF && dn != INF {
-            self.mid(&(INF, INF));
+            self.mid(hash, &(INF, INF));
         }
     }
     fn phi(&self, pd: &(U, U)) -> U {
-        match self.hp.side_to_move() {
+        match self.pos.side_to_move() {
             Color::Black => pd.0,
             Color::White => pd.1,
         }
     }
     fn delta(&self, pd: &(U, U)) -> U {
-        match self.hp.side_to_move() {
+        match self.pos.side_to_move() {
             Color::Black => pd.1,
             Color::White => pd.0,
         }
     }
     // ノードの展開
-    fn mid(&mut self, pd: &(U, U)) -> (U, U) {
+    fn mid(&mut self, hash: P::T, pd: &(U, U)) -> (U, U) {
         // 1. ハッシュを引く
-        let (p, d) = self.look_up_hash(&self.hp.to_hash());
+        let (p, d) = self.table.look_up_hash(&hash);
         if self.phi(pd) <= p || self.delta(pd) <= d {
-            return match self.hp.side_to_move() {
+            return match self.pos.side_to_move() {
                 Color::Black => (p, d),
                 Color::White => (d, p),
             };
         }
         // 2. 合法手の生成
-        let children = generate_legal_moves(&mut self.hp);
+        let children = generate_legal_moves(&mut self.pos);
         if children.is_empty() {
             // ?
-            self.put_in_hash((INF, 0));
-            return match self.hp.side_to_move() {
+            self.table.put_in_hash(hash, (INF, 0));
+            return match self.pos.side_to_move() {
                 Color::Black => (INF, 0),
                 Color::White => (0, INF),
             };
         }
         // 3. ハッシュによるサイクル回避
-        match self.hp.side_to_move() {
-            Color::Black => self.put_in_hash((pd.0, pd.1)),
-            Color::White => self.put_in_hash((pd.1, pd.0)),
+        match self.pos.side_to_move() {
+            Color::Black => self.table.put_in_hash(hash, (pd.0, pd.1)),
+            Color::White => self.table.put_in_hash(hash, (pd.1, pd.0)),
         }
         // 4. 多重反復深化
         loop {
@@ -95,8 +100,8 @@ where
             let md = self.min_delta(&children);
             let sp = self.sum_phi(&children);
             if self.phi(pd) <= md || self.delta(pd) <= sp {
-                self.put_in_hash((md, sp));
-                return match self.hp.side_to_move() {
+                self.table.put_in_hash(hash, (md, sp));
+                return match self.pos.side_to_move() {
                     Color::Black => (md, sp),
                     Color::White => (sp, md),
                 };
@@ -114,24 +119,24 @@ where
             } else {
                 (self.phi(pd)).min(delta_2.saturating_add(1))
             };
-            let m = best.expect("best move");
-            self.hp.make_move(m).expect("failed to make move");
-            match self.hp.side_to_move() {
-                Color::Black => self.mid(&(phi_n_c, delta_n_c)),
-                Color::White => self.mid(&(delta_n_c, phi_n_c)),
+            let (m, h) = best.expect("best move");
+            self.pos.make_move(m).expect("failed to make move");
+            match self.pos.side_to_move() {
+                Color::Black => self.mid(h, &(phi_n_c, delta_n_c)),
+                Color::White => self.mid(h, &(delta_n_c, phi_n_c)),
             };
-            self.hp.unmake_move().expect("failed to unmake move");
+            self.pos.unmake_move().expect("failed to unmake move");
         }
     }
     // 子ノードの選択
-    fn select_child(&mut self, children: &[(Move, HP::T)]) -> (Option<Move>, U, U, U) {
+    fn select_child(&mut self, children: &[(Move, P::T)]) -> (Option<(Move, P::T)>, U, U, U) {
         let (mut delta_c, mut delta_2) = (INF, INF);
         let mut best = None;
         let mut phi_c = None; // not optional?
         for &(m, h) in children {
-            let (p, d) = self.look_up_hash(&h);
+            let (p, d) = self.table.look_up_hash(&h);
             if d < delta_c {
-                best = Some(m);
+                best = Some((m, h));
                 delta_2 = delta_c;
                 phi_c = Some(p);
                 delta_c = d;
@@ -144,37 +149,29 @@ where
         }
         (best, phi_c.expect("phi_c"), delta_c, delta_2)
     }
-    // ハッシュを引く (本当は優越関係が使える)
-    fn look_up_hash(&self, key: &HP::T) -> (U, U) {
-        self.t.look_up_hash(key)
-    }
-    // ハッシュに記録
-    fn put_in_hash(&mut self, value: (U, U)) {
-        self.t.put_in_hash(self.hp.to_hash(), value);
-    }
     // n の子ノード の δ の最小を計算
-    fn min_delta(&mut self, children: &[(Move, HP::T)]) -> U {
+    fn min_delta(&mut self, children: &[(Move, P::T)]) -> U {
         let mut min = INF;
         for &(_, h) in children {
-            let (_, d) = self.look_up_hash(&h);
+            let (_, d) = self.table.look_up_hash(&h);
             min = min.min(d);
         }
         min
     }
     // nの子ノードのφの和を計算
-    fn sum_phi(&mut self, children: &[(Move, HP::T)]) -> U {
+    fn sum_phi(&mut self, children: &[(Move, P::T)]) -> U {
         let mut sum: U = 0;
         for &(_, h) in children {
-            let (p, _) = self.look_up_hash(&h);
+            let (p, _) = self.table.look_up_hash(&h);
             sum = sum.saturating_add(p);
         }
         sum
     }
 }
 
-pub fn generate_legal_moves<HP>(pos: &mut HP) -> Vec<(Move, HP::T)>
+pub fn generate_legal_moves<P>(pos: &mut P) -> Vec<(Move, P::T)>
 where
-    HP: HashPosition,
+    P: HashPosition,
 {
     let color = pos.side_to_move();
     let &bb = pos.player_bb(color);
@@ -185,11 +182,8 @@ where
             for to in pos.move_candidates(from, *p) {
                 for promote in [true, false] {
                     let m = Move::Normal { from, to, promote };
-                    if pos.make_move(m).is_ok() {
-                        if color == Color::White || pos.in_check(Color::White) {
-                            children.push((m, pos.to_hash()));
-                        }
-                        pos.unmake_move().expect("failed to unmake move");
+                    if let Ok(h) = try_legal_move(pos, m) {
+                        children.push((m, h));
                     }
                 }
             }
@@ -219,11 +213,8 @@ where
                         },
                     ) {
                         let m = Move::Drop { to, piece_type };
-                        if pos.make_move(m).is_ok() {
-                            if color == Color::White || pos.in_check(Color::White) {
-                                children.push((m, pos.to_hash()));
-                            }
-                            pos.unmake_move().expect("failed to unmake move");
+                        if let Ok(h) = try_legal_move(pos, m) {
+                            children.push((m, h));
                         }
                     }
                 }
@@ -249,13 +240,8 @@ where
                     }
                     for to in candidates {
                         let m = Move::Drop { to, piece_type };
-                        match pos.make_move(m) {
-                            Ok(_) => {
-                                if color == Color::White || pos.in_check(Color::White) {
-                                    children.push((m, pos.to_hash()));
-                                }
-                                pos.unmake_move().expect("failed to unmake move");
-                            }
+                        match try_legal_move(pos, m) {
+                            Ok(h) => children.push((m, h)),
                             Err(MoveError::InCheck) => {
                                 // 合駒として機能しない位置は候補から外す
                                 candidates.clear_at(to);
@@ -272,6 +258,27 @@ where
     children
 }
 
+fn try_legal_move<P>(pos: &mut P, m: Move) -> Result<P::T, MoveError>
+where
+    P: HashPosition,
+{
+    match pos.make_move(m) {
+        Ok(_) => {
+            let mut hash = None;
+            if pos.side_to_move() == Color::Black || pos.in_check(Color::White) {
+                hash = Some(pos.current_hash());
+            }
+            pos.unmake_move().expect("failed to unmake move");
+            if let Some(h) = hash {
+                Ok(h)
+            } else {
+                Err(MoveError::Inconsistent("Not legal move for tsumeshogi"))
+            }
+        }
+        Err(e) => Err(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -282,37 +289,43 @@ mod tests {
     use shogi::bitboard::Factory;
     use shogi::Position;
 
-    #[test]
-    fn test_impl() {
-        Factory::init();
-        let sfen = "3sks3/9/4S4/9/1+B7/9/9/9/9 b S2rb4g4n4l18p 1";
+    fn example_position() -> Position {
+        let mut pos = Position::new();
+        pos.set_sfen("3sks3/9/4S4/9/1+B7/9/9/9/9 b S2rb4g4n4l18p 1")
+            .expect("failed to parse SFEN string");
+        pos
+    }
 
-        // default + hashmap
-        {
-            let mut pos = Position::new();
-            pos.set_sfen(sfen).expect("failed to parse SFEN string");
-            let mut solver = Solver::new(DefaultHashPosition::new(pos), HashMapTable::new());
-            assert!(solver.t.is_empty());
-            solver.dfpn();
-            assert_eq!(171, solver.t.len());
-        }
-        // zobrist + hashmap
-        {
-            let mut pos = Position::new();
-            pos.set_sfen(sfen).expect("failed to parse SFEN string");
-            let mut solver = Solver::new(ZobristHashPosition::<u64>::new(pos), HashMapTable::new());
-            assert!(solver.t.is_empty());
-            solver.dfpn();
-            assert_eq!(171, solver.t.len());
-        }
-        // zobrist + vec
-        {
-            let mut pos = Position::new();
-            pos.set_sfen(sfen).expect("failed to parse SFEN string");
-            let mut solver = Solver::new(ZobristHashPosition::new(pos), VecTable::new(16));
-            assert!(solver.t.is_empty());
-            solver.dfpn();
-            assert_eq!(171, solver.t.len());
-        }
+    #[test]
+    fn test_impl_default_hashmap() {
+        Factory::init();
+
+        let pos = example_position();
+        let mut solver = Solver::new(DefaultHashPosition::new(pos), HashMapTable::new());
+        assert!(solver.table.is_empty());
+        solver.dfpn();
+        assert_eq!(171, solver.table.len());
+    }
+
+    #[test]
+    fn test_impl_zobrist_hashmap() {
+        Factory::init();
+
+        let pos = example_position();
+        let mut solver = Solver::new(ZobristHashPosition::<u64>::new(pos), HashMapTable::new());
+        assert!(solver.table.is_empty());
+        solver.dfpn();
+        assert_eq!(171, solver.table.len());
+    }
+
+    #[test]
+    fn test_impl_zobrist_vec() {
+        Factory::init();
+
+        let pos = example_position();
+        let mut solver = Solver::new(ZobristHashPosition::new(pos), VecTable::new(16));
+        assert!(solver.table.is_empty());
+        solver.dfpn();
+        assert_eq!(171, solver.table.len());
     }
 }

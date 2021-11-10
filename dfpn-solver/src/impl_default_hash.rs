@@ -3,41 +3,44 @@ use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-pub struct DefaultHashPosition(Position);
+pub struct DefaultHashPosition {
+    pos: Position,
+}
 
 impl DefaultHashPosition {
     pub fn new(pos: Position) -> Self {
-        Self(pos)
+        Self { pos }
     }
 }
 
 impl HashPosition for DefaultHashPosition {
     type T = u64;
     fn hand(&self, p: Piece) -> u8 {
-        self.0.hand(p)
+        self.pos.hand(p)
     }
-    fn in_check(&self, c: Color) -> bool {
-        self.0.in_check(c)
+    fn in_check(&self, color: Color) -> bool {
+        self.pos.in_check(color)
     }
     fn make_move(&mut self, m: Move) -> Result<(), MoveError> {
-        self.0.make_move(m)
+        self.pos.make_move(m)
     }
     fn move_candidates(&self, sq: Square, p: Piece) -> Bitboard {
-        self.0.move_candidates(sq, p)
+        self.pos.move_candidates(sq, p)
     }
     fn piece_at(&self, sq: Square) -> &Option<Piece> {
-        self.0.piece_at(sq)
+        self.pos.piece_at(sq)
     }
     fn player_bb(&self, c: Color) -> &Bitboard {
-        self.0.player_bb(c)
+        self.pos.player_bb(c)
     }
     fn side_to_move(&self) -> Color {
-        self.0.side_to_move()
+        self.pos.side_to_move()
     }
     fn unmake_move(&mut self) -> Result<(), MoveError> {
-        self.0.unmake_move()
+        self.pos.unmake_move()
     }
-    fn to_hash(&self) -> u64 {
+
+    fn current_hash(&self) -> u64 {
         let mut s = DefaultHasher::new();
         self.hash(&mut s);
         s.finish()
@@ -47,12 +50,12 @@ impl HashPosition for DefaultHashPosition {
 impl Hash for DefaultHashPosition {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Square::iter().for_each(|sq| {
-            self.0.piece_at(sq).map_or(28, p8).hash(state);
+            self.pos.piece_at(sq).map_or(28, p8).hash(state);
         });
         PieceType::iter().for_each(|piece_type| {
-            Color::iter().for_each(|color| self.0.hand(Piece { piece_type, color }).hash(state))
+            Color::iter().for_each(|color| self.pos.hand(Piece { piece_type, color }).hash(state))
         });
-        match self.0.side_to_move() {
+        match self.pos.side_to_move() {
             Color::Black => 0.hash(state),
             Color::White => 1.hash(state),
         };
