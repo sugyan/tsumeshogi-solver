@@ -8,7 +8,7 @@ use std::collections::HashMap;
 impl From<GameRecord> for Record {
     fn from(record: GameRecord) -> Self {
         Self {
-            start_pos: Position::from(record.start_pos),
+            pos: Position::from(record.start_pos),
             moves: Vec::new(),
         }
     }
@@ -21,11 +21,11 @@ impl From<CsaPosition> for Position {
             .into_iter()
             .map(|(s, pt)| (s.into(), pt.into()))
             .collect::<Vec<_>>();
-        let bulk = cp.bulk.map(|b| {
+        let board = cp.bulk.map_or(Board::default(), |b| {
             let mut board = Board::default();
             for (i, &row) in b.iter().enumerate() {
                 for (j, &col) in row.iter().enumerate() {
-                    board[i][j] = col.map(|(c, pt)| (Color::from(c), PieceType::from(pt)));
+                    board.0[i][j] = col.map(|(c, pt)| (Color::from(c), PieceType::from(pt)));
                 }
             }
             board
@@ -60,15 +60,15 @@ impl From<CsaPosition> for Position {
             ]
             .into_iter()
             .collect::<HashMap<_, _>>();
-            if let Some(b) = bulk {
-                b.iter()
-                    .flat_map(|row| row.iter().filter_map(|&o| o))
-                    .for_each(|(_, pt)| {
-                        let c = counts.get_mut(&pt.unpromoted()).unwrap();
-                        *c -= 1;
-                        assert!(*c >= 0, "invalid pieces count");
-                    })
-            }
+            board
+                .0
+                .iter()
+                .flat_map(|row| row.iter().filter_map(|&o| o))
+                .for_each(|(_, pt)| {
+                    let c = counts.get_mut(&pt.unpromoted()).unwrap();
+                    *c -= 1;
+                    assert!(*c >= 0, "invalid pieces count");
+                });
             drop_pieces.iter().for_each(|(_, pt)| {
                 let c = counts.get_mut(pt).unwrap();
                 *c -= 1;
@@ -97,7 +97,7 @@ impl From<CsaPosition> for Position {
         }
         Self {
             drop_pieces,
-            bulk,
+            board,
             add_pieces,
             side_to_move,
         }

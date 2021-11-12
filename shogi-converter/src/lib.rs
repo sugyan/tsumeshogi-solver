@@ -1,6 +1,6 @@
-mod csa_converter;
-mod sfen_converter;
-
+pub mod csa_converter;
+pub mod kif_converter;
+pub mod sfen_converter;
 use std::fmt;
 use std::time::Duration;
 
@@ -14,7 +14,7 @@ pub struct Record {
     // pub end_time: Option<Time>,
     // pub time_limit: Option<TimeLimit>,
     // pub opening: Option<String>,
-    pub start_pos: Position,
+    pub pos: Position,
     pub moves: Vec<Move>,
 }
 
@@ -225,12 +225,91 @@ impl PieceType {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type Board = [[Option<(Color, PieceType)>; 9]; 9];
+#[derive(Debug, PartialEq, Eq)]
+pub struct Board([[Option<(Color, PieceType)>; 9]; 9]);
 
-#[derive(Debug, Default, PartialEq, Eq)]
+impl Default for Board {
+    fn default() -> Self {
+        use self::Color::*;
+        use self::PieceType::*;
+        Self([
+            [
+                Some((White, Lance)),
+                Some((White, Knight)),
+                Some((White, Silver)),
+                Some((White, Gold)),
+                Some((White, King)),
+                Some((White, Gold)),
+                Some((White, Silver)),
+                Some((White, Knight)),
+                Some((White, Lance)),
+            ],
+            [
+                None,
+                Some((White, Rook)),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some((White, Bishop)),
+                None,
+            ],
+            [
+                Some((White, Pawn)),
+                Some((White, Pawn)),
+                Some((White, Pawn)),
+                Some((White, Pawn)),
+                Some((White, Pawn)),
+                Some((White, Pawn)),
+                Some((White, Pawn)),
+                Some((White, Pawn)),
+                Some((White, Pawn)),
+            ],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [
+                Some((Black, Pawn)),
+                Some((Black, Pawn)),
+                Some((Black, Pawn)),
+                Some((Black, Pawn)),
+                Some((Black, Pawn)),
+                Some((Black, Pawn)),
+                Some((Black, Pawn)),
+                Some((Black, Pawn)),
+                Some((Black, Pawn)),
+            ],
+            [
+                None,
+                Some((Black, Bishop)),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some((Black, Rook)),
+                None,
+            ],
+            [
+                Some((Black, Lance)),
+                Some((Black, Knight)),
+                Some((Black, Silver)),
+                Some((Black, Gold)),
+                Some((Black, King)),
+                Some((Black, Gold)),
+                Some((Black, Silver)),
+                Some((Black, Knight)),
+                Some((Black, Lance)),
+            ],
+        ])
+    }
+}
+
+#[derive(Default, Debug, PartialEq, Eq)]
 pub struct Position {
     pub drop_pieces: Vec<(Square, PieceType)>,
-    pub bulk: Option<Board>,
+    pub board: Board,
     pub add_pieces: Vec<(Color, Square, PieceType)>,
     pub side_to_move: Color,
 }

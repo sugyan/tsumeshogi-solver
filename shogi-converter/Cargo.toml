@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 csa = "0.6"
 itertools = "0.10.1"
+encoding_rs = "0.8.29"
+nom = "7.1.0"
