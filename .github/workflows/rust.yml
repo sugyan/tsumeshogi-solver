@@ -22,6 +22,8 @@ jobs:
       run: cargo test --verbose
     - name: Run tests for dfpn-solver
       run: cargo test --verbose -p dfpn-solver --lib
+    - name: Run tests for shogi-converter
+      run: cargo test --verbose -p shogi-converter --lib
 
   clippy_check:
 
@@ -42,3 +44,9 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         name: clippy-dfpn-solver
         args: --all-features --manifest-path ./dfpn-solver/Cargo.toml
+    - name: Run clippy for shogi-converter
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        name: clippy-shogi-converter
+        args: --all-features --manifest-path ./shogi-converter/Cargo.toml
