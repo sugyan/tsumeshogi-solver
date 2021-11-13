@@ -7,8 +7,8 @@ use nom::character::complete::{
 };
 use nom::combinator::{map_res, opt, value};
 use nom::multi::{fill, many0};
-use nom::sequence::{delimited, preceded, separated_pair, terminated};
-use nom::IResult;
+use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
+use nom::{IResult, Parser};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -36,6 +36,13 @@ pub fn parse_kif(bytes: &[u8]) -> Result<Record, KifError> {
 
 fn comment_line(input: &str) -> IResult<&str, &str> {
     terminated(preceded(tag("#"), not_line_ending), line_ending)(input)
+}
+
+fn attributes(input: &str) -> IResult<&str, Vec<(&str, &str)>> {
+    many0(terminated(
+        separated_pair(is_not("\r\n："), tag("："), not_line_ending),
+        line_ending,
+    ))(input)
 }
 
 fn piece(input: &str) -> IResult<&str, PieceType> {
@@ -77,13 +84,6 @@ fn board_row(input: &str) -> IResult<&str, [Option<(Color, PieceType)>; 9]> {
     Ok((input, ret))
 }
 
-fn attributes(input: &str) -> IResult<&str, Vec<(&str, &str)>> {
-    many0(terminated(
-        separated_pair(is_not("\r\n："), tag("："), not_line_ending),
-        line_ending,
-    ))(input)
-}
-
 fn board(input: &str) -> IResult<&str, Board> {
     let (input, _) = terminated(tag("  ９ ８ ７ ６ ５ ４ ３ ２ １"), line_ending)(input)?;
     let (input, _) = terminated(tag("+---------------------------+"), line_ending)(input)?;
@@ -100,44 +100,54 @@ fn board(input: &str) -> IResult<&str, Board> {
     Ok((input, Board([r1, r2, r3, r4, r5, r6, r7, r8, r9])))
 }
 
-fn move_action_move(input: &str) -> IResult<&str, Action> {
-    let (input, to_file) = alt((
-        value(1, tag("１")),
-        value(2, tag("２")),
-        value(3, tag("３")),
-        value(4, tag("４")),
-        value(5, tag("５")),
-        value(6, tag("６")),
-        value(7, tag("７")),
-        value(8, tag("８")),
-        value(9, tag("９")),
-    ))(input)?;
-    let (input, to_rank) = alt((
-        value(1, tag("一")),
-        value(2, tag("二")),
-        value(3, tag("三")),
-        value(4, tag("四")),
-        value(5, tag("五")),
-        value(6, tag("六")),
-        value(7, tag("七")),
-        value(8, tag("八")),
-        value(9, tag("九")),
-    ))(input)?;
-    let (input, piece_type) = piece(input)?;
-    let (input, from) = delimited(
-        tag("("),
-        map_res(digit1, |s: &str| s.parse::<u8>()),
-        tag(")"),
-    )(input)?;
-    Ok((
-        input,
-        Action::Move(
-            Color::Black,
-            Square::new(from / 10, from % 10),
-            Square::new(to_file, to_rank),
-            piece_type,
+fn move_from(input: &str) -> IResult<&str, Square> {
+    let (input, (file, rank)) = alt((
+        delimited(
+            tag("("),
+            map_res(digit1, |s: &str| s.parse::<u8>()).map(|d| (d / 10, d % 10)),
+            tag(")"),
         ),
-    ))
+        value((0, 0), tag("打")),
+    ))(input)?;
+    Ok((input, Square::new(file, rank)))
+}
+
+fn move_to(input: &str) -> IResult<&str, Square> {
+    let (input, (file, rank)) = alt((
+        pair(
+            alt((
+                value(1, tag("１")),
+                value(2, tag("２")),
+                value(3, tag("３")),
+                value(4, tag("４")),
+                value(5, tag("５")),
+                value(6, tag("６")),
+                value(7, tag("７")),
+                value(8, tag("８")),
+                value(9, tag("９")),
+            )),
+            alt((
+                value(1, tag("一")),
+                value(2, tag("二")),
+                value(3, tag("三")),
+                value(4, tag("四")),
+                value(5, tag("五")),
+                value(6, tag("六")),
+                value(7, tag("七")),
+                value(8, tag("八")),
+                value(9, tag("九")),
+            )),
+        ),
+        value((0, 0), tag("同　")),
+    ))(input)?;
+    Ok((input, Square::new(file, rank)))
+}
+
+fn move_action_move(input: &str) -> IResult<&str, Action> {
+    let (input, to) = move_to(input)?;
+    let (input, piece_type) = piece(input)?;
+    let (input, from) = move_from(input)?;
+    Ok((input, Action::Move(Color::Black, from, to, piece_type)))
 }
 
 fn move_action(input: &str) -> IResult<&str, Action> {
@@ -161,6 +171,7 @@ fn move_line(input: &str) -> IResult<&str, Move> {
         space1,
         separated_pair(move_action, tag(" "), not_line_ending),
     )(input)?;
+    // fix color...
     if let Action::Move(color, _, _, _) = &mut action {
         *color = if num % 2 == 1 {
             Color::Black
@@ -172,7 +183,24 @@ fn move_line(input: &str) -> IResult<&str, Move> {
 }
 
 fn moves(input: &str) -> IResult<&str, Vec<Move>> {
-    many0(terminated(preceded(space0, move_line), line_ending))(input)
+    let (input, moves) = many0(pair(
+        terminated(preceded(space0, move_line), line_ending),
+        many0(terminated(preceded(tag("*"), not_line_ending), line_ending)),
+    ))(input)?;
+    // TODO: 変化？
+    let (input, _) = many0(terminated(not_line_ending, line_ending))(input)?;
+    // 「同」
+    let mut moves = moves.into_iter().map(|(m, _)| m).collect::<Vec<_>>();
+    for i in 1..moves.len() {
+        if let (Action::Move(_, _, prev_to, _), Action::Move(_, _, curr_to, _)) =
+            (moves[i - 1].action, &mut moves[i].action)
+        {
+            if *curr_to == (Square { file: 0, rank: 0 }) {
+                *curr_to = prev_to;
+            }
+        }
+    }
+    Ok((input, moves))
 }
 
 fn record(input: &str) -> IResult<&str, Record> {
@@ -271,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_moves() {
+    fn parse_moves_1() {
         assert_eq!(
             moves(
                 &r"
@@ -305,6 +333,80 @@ mod tests {
                         action: Action::Chudan,
                         time: None,
                     }
+                ]
+            ))
+        );
+    }
+
+    #[test]
+    fn parse_moves_2() {
+        assert_eq!(
+            moves(
+                &r"
+   1 ２二金打     ( 0:00/00:00:00) ( 0:00/00:00:00)
+   2 同　玉(12)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+   3 ３二飛打     ( 0:00/00:00:00) ( 0:00/00:00:00)
+   4 同　玉(22)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+   5 ４二龍(53)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+*正解図
+変化：1手
+   1 ３二飛打     ( 0:00/00:00:00) ( 0:00/00:00:00)
+   2 ２二香打     ( 0:00/00:00:00) ( 0:00/00:00:00)
+   3 同　飛成(32) ( 0:00/00:00:00) ( 0:00/00:00:00)
+   4 同　玉(12)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+   5 ３二金打     ( 0:00/00:00:00) ( 0:00/00:00:00)
+   6 １二玉(22)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+*失敗図
+"[1..]
+            ),
+            Ok((
+                "",
+                vec![
+                    Move {
+                        action: Action::Move(
+                            Color::Black,
+                            Square::new(0, 0),
+                            Square::new(2, 2),
+                            PieceType::Gold,
+                        ),
+                        time: None,
+                    },
+                    Move {
+                        action: Action::Move(
+                            Color::White,
+                            Square::new(1, 2),
+                            Square::new(2, 2),
+                            PieceType::King,
+                        ),
+                        time: None,
+                    },
+                    Move {
+                        action: Action::Move(
+                            Color::Black,
+                            Square::new(0, 0),
+                            Square::new(3, 2),
+                            PieceType::Rook,
+                        ),
+                        time: None,
+                    },
+                    Move {
+                        action: Action::Move(
+                            Color::White,
+                            Square::new(2, 2),
+                            Square::new(3, 2),
+                            PieceType::King,
+                        ),
+                        time: None,
+                    },
+                    Move {
+                        action: Action::Move(
+                            Color::Black,
+                            Square::new(5, 3),
+                            Square::new(4, 2),
+                            PieceType::Dragon,
+                        ),
+                        time: None,
+                    },
                 ]
             ))
         );
