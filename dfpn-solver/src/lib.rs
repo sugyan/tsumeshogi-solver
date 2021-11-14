@@ -11,6 +11,7 @@ pub const INF: U = U::MAX;
 
 pub trait HashPosition {
     type T: Eq + Hash + Copy;
+    fn find_king(&self, c: Color) -> Option<Square>;
     fn hand(&self, p: Piece) -> u8;
     fn in_check(&self, color: Color) -> bool;
     fn make_move(&mut self, m: Move) -> Result<(), MoveError>;
@@ -188,14 +189,7 @@ where
         }
     }
     // drop moves
-    if let Some(king_sq) = pos.player_bb(Color::White).into_iter().find(|sq| {
-        // want to use pos.find_king()...
-        pos.piece_at(*sq)
-            == &Some(Piece {
-                piece_type: PieceType::King,
-                color: Color::White,
-            })
-    }) {
+    if let Some(king_sq) = pos.find_king(Color::White) {
         match pos.side_to_move() {
             Color::Black => {
                 for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {

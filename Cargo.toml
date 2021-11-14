@@ -10,4 +10,4 @@ dfpn-solver = { path = "./dfpn-solver" }
 shogi-converter = { path = "./shogi-converter" }
 csa = "0.6"
 clap = "2.33.3"
-shogi = "0.11.0"
+shogi = "0.12.0"

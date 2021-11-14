@@ -15,6 +15,9 @@ impl DefaultHashPosition {
 
 impl HashPosition for DefaultHashPosition {
     type T = u64;
+    fn find_king(&self, c: Color) -> Option<Square> {
+        self.pos.find_king(c)
+    }
     fn hand(&self, p: Piece) -> u8 {
         self.pos.hand(p)
     }

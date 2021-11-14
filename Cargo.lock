@@ -312,9 +312,9 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 
 [[package]]
 name = "shogi"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc801380728d05fb832ce7fc44c68e9ca970d86e5e7d32f435a95a3013e40c45"
+checksum = "7a4a645f4115ed7ecfb9a453c49d3415cfa1bafef5a5eee3b0b9bbc5ac956598"
 dependencies = [
  "bitintr",
  "itertools",
