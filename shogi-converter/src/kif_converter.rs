@@ -179,18 +179,30 @@ fn move_line(input: &str) -> IResult<&str, Move> {
             Color::White
         };
     }
-    Ok((input, Move { action, time: None }))
+    Ok((
+        input,
+        Move {
+            action,
+            time: None,
+            comments: Vec::new(),
+        },
+    ))
+}
+
+fn move_(input: &str) -> IResult<&str, Move> {
+    let (input, (mut m, comments)) = pair(
+        terminated(preceded(space0, move_line), line_ending),
+        many0(terminated(preceded(tag("*"), not_line_ending), line_ending)),
+    )(input)?;
+    m.comments = comments.iter().map(|s| s.to_string()).collect();
+    Ok((input, m))
 }
 
 fn moves(input: &str) -> IResult<&str, Vec<Move>> {
-    let (input, moves) = many0(pair(
-        terminated(preceded(space0, move_line), line_ending),
-        many0(terminated(preceded(tag("*"), not_line_ending), line_ending)),
-    ))(input)?;
+    let (input, mut moves) = many0(move_)(input)?;
     // TODO: 変化？
     let (input, _) = many0(terminated(not_line_ending, line_ending))(input)?;
     // 「同」
-    let mut moves = moves.into_iter().map(|(m, _)| m).collect::<Vec<_>>();
     for i in 1..moves.len() {
         if let (Action::Move(_, _, prev_to, _), Action::Move(_, _, curr_to, _)) =
             (moves[i - 1].action, &mut moves[i].action)
@@ -319,6 +331,7 @@ mod tests {
                             PieceType::Pawn
                         ),
                         time: None,
+                        comments: Vec::new(),
                     },
                     Move {
                         action: Action::Move(
@@ -328,10 +341,12 @@ mod tests {
                             PieceType::Pawn
                         ),
                         time: None,
+                        comments: Vec::new(),
                     },
                     Move {
                         action: Action::Chudan,
                         time: None,
+                        comments: Vec::new(),
                     }
                 ]
             ))
@@ -370,6 +385,7 @@ mod tests {
                             PieceType::Gold,
                         ),
                         time: None,
+                        comments: Vec::new(),
                     },
                     Move {
                         action: Action::Move(
@@ -379,6 +395,7 @@ mod tests {
                             PieceType::King,
                         ),
                         time: None,
+                        comments: Vec::new(),
                     },
                     Move {
                         action: Action::Move(
@@ -388,6 +405,7 @@ mod tests {
                             PieceType::Rook,
                         ),
                         time: None,
+                        comments: Vec::new(),
                     },
                     Move {
                         action: Action::Move(
@@ -397,6 +415,7 @@ mod tests {
                             PieceType::King,
                         ),
                         time: None,
+                        comments: Vec::new(),
                     },
                     Move {
                         action: Action::Move(
@@ -406,6 +425,7 @@ mod tests {
                             PieceType::Dragon,
                         ),
                         time: None,
+                        comments: vec![String::from("正解図")],
                     },
                 ]
             ))
@@ -442,6 +462,7 @@ mod tests {
                                 PieceType::Pawn
                             ),
                             time: None,
+                            comments: Vec::new(),
                         },
                         Move {
                             action: Action::Move(
@@ -451,10 +472,12 @@ mod tests {
                                 PieceType::Pawn
                             ),
                             time: None,
+                            comments: Vec::new(),
                         },
                         Move {
                             action: Action::Chudan,
                             time: None,
+                            comments: Vec::new(),
                         }
                     ]
                 }

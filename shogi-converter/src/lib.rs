@@ -396,6 +396,7 @@ pub enum Action {
 pub struct Move {
     pub action: Action,
     pub time: Option<Duration>,
+    pub comments: Vec<String>,
 }
 
 // impl fmt::Display for Move {
