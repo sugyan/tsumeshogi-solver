@@ -242,7 +242,7 @@ fn record(input: &str) -> IResult<&str, Record> {
             pos: Position {
                 drop_pieces: Vec::new(),
                 board: board.unwrap_or_default(),
-                add_pieces: Vec::new(),
+                hand: Default::default(),
                 side_to_move: Color::Black,
             },
             moves,
