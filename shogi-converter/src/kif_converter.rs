@@ -1,12 +1,12 @@
-use crate::{Action, Board, Color, Move, PieceType, Position, Record, Square};
+use crate::{Action, Board, Color, Hand, Move, PieceType, Position, Record, Square};
 use encoding_rs::SHIFT_JIS;
 use nom::branch::alt;
 use nom::bytes::complete::{is_a, is_not, tag};
 use nom::character::complete::{
     digit1, line_ending, none_of, not_line_ending, one_of, space0, space1,
 };
-use nom::combinator::{map_res, opt, value};
-use nom::multi::{fill, many0};
+use nom::combinator::{map, map_res, opt, value};
+use nom::multi::{fill, many0, separated_list0};
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
 use nom::{IResult, Parser};
 use std::collections::HashMap;
@@ -64,6 +64,29 @@ fn piece(input: &str) -> IResult<&str, PieceType> {
     ))(input)
 }
 
+fn japanese_numerals(input: &str) -> IResult<&str, u8> {
+    alt((
+        value(11, tag("十一")),
+        value(12, tag("十二")),
+        value(13, tag("十三")),
+        value(14, tag("十四")),
+        value(15, tag("十五")),
+        value(16, tag("十六")),
+        value(17, tag("十七")),
+        value(18, tag("十八")),
+        value(1, tag("一")),
+        value(2, tag("二")),
+        value(3, tag("三")),
+        value(4, tag("四")),
+        value(5, tag("五")),
+        value(6, tag("六")),
+        value(7, tag("七")),
+        value(8, tag("八")),
+        value(9, tag("九")),
+        value(10, tag("十")),
+    ))(input)
+}
+
 fn piece_cell(input: &str) -> IResult<&str, Option<(Color, PieceType)>> {
     let (input, color) =
         alt((value(Color::Black, tag(" ")), value(Color::White, tag("v"))))(input)?;
@@ -100,6 +123,25 @@ fn board(input: &str) -> IResult<&str, Board> {
     Ok((input, Board([r1, r2, r3, r4, r5, r6, r7, r8, r9])))
 }
 
+fn hand_piece(input: &str) -> IResult<&str, (PieceType, u8)> {
+    let (input, hand_piece) = pair(
+        piece,
+        map(opt(japanese_numerals), |o: Option<u8>| o.unwrap_or(1)),
+    )(input)?;
+    Ok((input, hand_piece))
+}
+
+fn hands(input: &str) -> IResult<&str, [u8; 7]> {
+    let (input, hands) = separated_list0(tag("　"), hand_piece)(input)?;
+    Ok((
+        input,
+        hands.iter().fold([0; 7], |mut acc, &(piece_type, num)| {
+            acc[piece_type.index()] = num;
+            acc
+        }),
+    ))
+}
+
 fn move_from(input: &str) -> IResult<&str, Square> {
     let (input, (file, rank)) = alt((
         delimited(
@@ -126,17 +168,7 @@ fn move_to(input: &str) -> IResult<&str, Square> {
                 value(8, tag("８")),
                 value(9, tag("９")),
             )),
-            alt((
-                value(1, tag("一")),
-                value(2, tag("二")),
-                value(3, tag("三")),
-                value(4, tag("四")),
-                value(5, tag("五")),
-                value(6, tag("六")),
-                value(7, tag("七")),
-                value(8, tag("八")),
-                value(9, tag("九")),
-            )),
+            japanese_numerals,
         ),
         value((0, 0), tag("同　")),
     ))(input)?;
@@ -222,6 +254,7 @@ fn record(input: &str) -> IResult<&str, Record> {
     for (key, value) in attrs {
         hm.insert(key, value);
     }
+    // board
     let (input, _) = many0(comment_line)(input)?;
     let (input, board) = opt(board)(input)?;
     let (input, _) = many0(comment_line)(input)?;
@@ -230,11 +263,29 @@ fn record(input: &str) -> IResult<&str, Record> {
         hm.insert(key, value);
     }
     let (input, _) = many0(comment_line)(input)?;
-    // TODO
+    // hands
+    let mut hand = Hand::default();
+    for (k, v) in hm {
+        match k {
+            "先手の持駒" => {
+                if let Ok((_, h)) = hands(v) {
+                    hand.0[Color::Black.index()] = h;
+                }
+            }
+            "後手の持駒" => {
+                if let Ok((_, h)) = hands(v) {
+                    hand.0[Color::White.index()] = h;
+                }
+            }
+            _ => {}
+        }
+    }
+    // TODO: extra lines
     let (input, _) = many0(terminated(
         preceded(none_of(" 0123456789"), not_line_ending),
         line_ending,
     ))(input)?;
+    // moves
     let (input, moves) = moves(input)?;
     Ok((
         input,
@@ -242,7 +293,7 @@ fn record(input: &str) -> IResult<&str, Record> {
             pos: Position {
                 drop_pieces: Vec::new(),
                 board: board.unwrap_or_default(),
-                hand: Default::default(),
+                hand,
                 side_to_move: Color::Black,
             },
             moves,
@@ -253,6 +304,8 @@ fn record(input: &str) -> IResult<&str, Record> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Color::*;
+    use crate::PieceType::*;
 
     #[test]
     fn parse_comment() {
@@ -324,22 +377,12 @@ mod tests {
                 "",
                 vec![
                     Move {
-                        action: Action::Move(
-                            Color::Black,
-                            Square::new(7, 7),
-                            Square::new(7, 6),
-                            PieceType::Pawn
-                        ),
+                        action: Action::Move(Black, Square::new(7, 7), Square::new(7, 6), Pawn),
                         time: None,
                         comments: Vec::new(),
                     },
                     Move {
-                        action: Action::Move(
-                            Color::White,
-                            Square::new(3, 3),
-                            Square::new(3, 4),
-                            PieceType::Pawn
-                        ),
+                        action: Action::Move(White, Square::new(3, 3), Square::new(3, 4), Pawn),
                         time: None,
                         comments: Vec::new(),
                     },
@@ -378,52 +421,27 @@ mod tests {
                 "",
                 vec![
                     Move {
-                        action: Action::Move(
-                            Color::Black,
-                            Square::new(0, 0),
-                            Square::new(2, 2),
-                            PieceType::Gold,
-                        ),
+                        action: Action::Move(Black, Square::new(0, 0), Square::new(2, 2), Gold,),
                         time: None,
                         comments: Vec::new(),
                     },
                     Move {
-                        action: Action::Move(
-                            Color::White,
-                            Square::new(1, 2),
-                            Square::new(2, 2),
-                            PieceType::King,
-                        ),
+                        action: Action::Move(White, Square::new(1, 2), Square::new(2, 2), King,),
                         time: None,
                         comments: Vec::new(),
                     },
                     Move {
-                        action: Action::Move(
-                            Color::Black,
-                            Square::new(0, 0),
-                            Square::new(3, 2),
-                            PieceType::Rook,
-                        ),
+                        action: Action::Move(Black, Square::new(0, 0), Square::new(3, 2), Rook,),
                         time: None,
                         comments: Vec::new(),
                     },
                     Move {
-                        action: Action::Move(
-                            Color::White,
-                            Square::new(2, 2),
-                            Square::new(3, 2),
-                            PieceType::King,
-                        ),
+                        action: Action::Move(White, Square::new(2, 2), Square::new(3, 2), King,),
                         time: None,
                         comments: Vec::new(),
                     },
                     Move {
-                        action: Action::Move(
-                            Color::Black,
-                            Square::new(5, 3),
-                            Square::new(4, 2),
-                            PieceType::Dragon,
-                        ),
+                        action: Action::Move(Black, Square::new(5, 3), Square::new(4, 2), Dragon,),
                         time: None,
                         comments: vec![String::from("正解図")],
                     },
@@ -455,22 +473,12 @@ mod tests {
                     pos: Position::default(),
                     moves: vec![
                         Move {
-                            action: Action::Move(
-                                Color::Black,
-                                Square::new(7, 7),
-                                Square::new(7, 6),
-                                PieceType::Pawn
-                            ),
+                            action: Action::Move(Black, Square::new(7, 7), Square::new(7, 6), Pawn),
                             time: None,
                             comments: Vec::new(),
                         },
                         Move {
-                            action: Action::Move(
-                                Color::White,
-                                Square::new(3, 3),
-                                Square::new(3, 4),
-                                PieceType::Pawn
-                            ),
+                            action: Action::Move(White, Square::new(3, 3), Square::new(3, 4), Pawn),
                             time: None,
                             comments: Vec::new(),
                         },
@@ -479,6 +487,162 @@ mod tests {
                             time: None,
                             comments: Vec::new(),
                         }
+                    ]
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn parse_record_tsume() {
+        assert_eq!(
+            record(
+                &r"
+# ---- 柿木将棋形式棋譜ファイル
+# ----   generated by IS-SHOGI
+対局日：2019/04/04(木) 19:25:06
+終了日時：2019/04/04(木) 19:25:06
+手合割：詰将棋　
+後手の持駒：飛　角二　金二　銀二　桂三　香三　歩十七　
+  ９ ８ ７ ６ ５ ４ ３ ２ １
++---------------------------+
+| ・ ・ ・ ・ ・ ・ ・v桂v香|一
+| ・ ・ ・ ・ ・ ・ 銀 ・v玉|二
+| ・ ・ ・ ・ ・ ・v歩 ・v金|三
+| ・ ・ ・ ・ ・ 龍 ・ ・ ・|四
+| ・ ・ ・ ・ ・ ・ ・ ・ ・|五
+| ・ ・ ・ ・ ・ ・ ・ ・ ・|六
+| ・ ・ ・ ・ ・ ・ ・ ・ ・|七
+| ・ ・ ・ ・ ・ ・ ・ ・ ・|八
+| ・ ・ ・ ・ ・ ・ ・ ・ ・|九
++---------------------------+
+先手の持駒：金　銀　
+先手番
+先手：
+後手：
+手数----指手---------消費時間--
+   1 ２一銀(32)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+   2 同　玉(12)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+   3 ４一龍(44)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+   4 ３一金打     ( 0:00/00:00:00) ( 0:00/00:00:00)
+   5 ３二銀打     ( 0:00/00:00:00) ( 0:00/00:00:00)
+   6 １二玉(21)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+*失敗図
+変化：1手
+   1 ２三銀打     ( 0:00/00:00:00) ( 0:00/00:00:00)
+   2 同　金(13)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+   3 １四龍(44)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+   4 同　金(23)   ( 0:00/00:00:00) ( 0:00/00:00:00)
+   5 ２三金打     ( 0:00/00:00:00) ( 0:00/00:00:00)
+*正解図
+#--separator--
+"[1..]
+            ),
+            Ok((
+                "",
+                Record {
+                    pos: Position {
+                        drop_pieces: Vec::new(),
+                        board: Board([
+                            [
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                Some((White, Knight)),
+                                Some((White, Lance)),
+                            ],
+                            [
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                Some((Black, Silver)),
+                                None,
+                                Some((White, King)),
+                            ],
+                            [
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                Some((White, Pawn)),
+                                None,
+                                Some((White, Gold)),
+                            ],
+                            [
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                Some((Black, Dragon)),
+                                None,
+                                None,
+                                None
+                            ],
+                            [None, None, None, None, None, None, None, None, None],
+                            [None, None, None, None, None, None, None, None, None],
+                            [None, None, None, None, None, None, None, None, None],
+                            [None, None, None, None, None, None, None, None, None],
+                            [None, None, None, None, None, None, None, None, None]
+                        ]),
+                        hand: Hand([[0, 0, 0, 1, 1, 0, 0], [17, 3, 3, 2, 2, 2, 1]]),
+                        side_to_move: Black,
+                    },
+                    moves: vec![
+                        Move {
+                            action: Action::Move(
+                                Black,
+                                Square::new(3, 2),
+                                Square::new(2, 1),
+                                Silver,
+                            ),
+                            time: None,
+                            comments: Vec::new(),
+                        },
+                        Move {
+                            action: Action::Move(White, Square::new(1, 2), Square::new(2, 1), King,),
+                            time: None,
+                            comments: Vec::new(),
+                        },
+                        Move {
+                            action: Action::Move(
+                                Black,
+                                Square::new(4, 4),
+                                Square::new(4, 1),
+                                Dragon,
+                            ),
+                            time: None,
+                            comments: Vec::new(),
+                        },
+                        Move {
+                            action: Action::Move(White, Square::new(0, 0), Square::new(3, 1), Gold,),
+                            time: None,
+                            comments: Vec::new(),
+                        },
+                        Move {
+                            action: Action::Move(
+                                Black,
+                                Square::new(0, 0),
+                                Square::new(3, 2),
+                                Silver,
+                            ),
+                            time: None,
+                            comments: Vec::new(),
+                        },
+                        Move {
+                            action: Action::Move(White, Square::new(2, 1), Square::new(1, 2), King,),
+                            time: None,
+                            comments: vec![String::from("失敗図")],
+                        },
                     ]
                 }
             ))
