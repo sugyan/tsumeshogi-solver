@@ -52,7 +52,7 @@ impl From<CsaPosition> for Position {
                 .iter()
                 .flat_map(|row| {
                     row.iter()
-                        .filter_map(|&o| o.filter(|(_, pt)| pt.is_hand_piece()))
+                        .filter_map(|&o| o.filter(|(_, pt)| pt.unpromoted().is_hand_piece()))
                 })
                 .for_each(|(_, pt)| {
                     remains[pt.unpromoted().index()] -= 1;
