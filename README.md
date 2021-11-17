@@ -17,7 +17,7 @@ P9 *  *  *  *  *  *  *  *  *
 P-00AL
 +
 
-$ ./tsumeshogi-solver 3.csa
+$ ./tsumeshogi-solver --format csa -v 3.csa
    9   8   7   6   5   4   3   2   1
 +---+---+---+---+---+---+---+---+---+
 |   |   |   |   |   |   |   |   |   | a
@@ -49,7 +49,21 @@ Ply: 1
 ### Run
 
 ```
-cargo run <csa file>
+Tsumeshogi Solver 0.1
+
+USAGE:
+    tsumeshogi-solver [FLAGS] [OPTIONS] <INPUT>...
+
+FLAGS:
+    -h, --help       Prints help information
+    -v, --verbose    Verbose mode
+    -V, --version    Prints version information
+
+OPTIONS:
+    -f, --format <format>    input format [default: sfen]  [possible values: sfen, csa, kif]
+
+ARGS:
+    <INPUT>...    Input files or strings
 ```
 
 

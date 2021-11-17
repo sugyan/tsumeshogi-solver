@@ -409,6 +409,7 @@ dependencies = [
  "dfpn-solver",
  "shogi",
  "shogi-converter",
+ "thiserror",
 ]
 
 [[package]]

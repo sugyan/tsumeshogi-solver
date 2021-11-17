@@ -9,7 +9,7 @@ use nom::combinator::{map, map_res, opt, value};
 use nom::multi::{fill, many0, separated_list0};
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
 use nom::{IResult, Parser};
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error, fmt};
 
 #[derive(Debug)]
 pub enum KifError {
@@ -17,6 +17,18 @@ pub enum KifError {
     EncodingNotShiftJISError(),
     EncodingError(),
 }
+
+impl fmt::Display for KifError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            KifError::ParseError() => write!(f, "failed to parse"),
+            KifError::EncodingNotShiftJISError() => write!(f, "input was not SHIFT-JIS"),
+            KifError::EncodingError() => write!(f, "failed to decode input"),
+        }
+    }
+}
+
+impl Error for KifError {}
 
 pub fn parse_kif(bytes: &[u8]) -> Result<Record, KifError> {
     let (cow, encoding_used, had_errors) = SHIFT_JIS.decode(bytes);

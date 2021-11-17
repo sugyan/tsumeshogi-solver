@@ -11,3 +11,4 @@ shogi-converter = { path = "./shogi-converter" }
 csa = "0.6"
 clap = "2.33.3"
 shogi = "0.12.0"
+thiserror = "1.0.30"
