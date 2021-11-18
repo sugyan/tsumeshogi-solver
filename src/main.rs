@@ -6,6 +6,7 @@ use dfpn_solver::{generate_legal_moves, HashPosition, Solver, Table, INF};
 use shogi::{bitboard::Factory, Color, Move, Piece, PieceType, Position, SfenError};
 use shogi_converter::kif_converter::{parse_kif, KifError};
 use shogi_converter::Record;
+use std::io::BufRead;
 use std::{cmp::Reverse, fs::File, io::Read, str};
 use thiserror::Error;
 
@@ -17,8 +18,6 @@ enum ParseError {
     Kif(KifError),
     #[error("failed to parse sfen: {0}")]
     Sfen(SfenError),
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
     #[error(transparent)]
     Utf8(#[from] std::str::Utf8Error),
 }
@@ -60,17 +59,6 @@ impl Parse for KifParser {
     }
 }
 
-struct SfenParser;
-
-impl Parse for SfenParser {
-    fn parse(&self, input: &[u8]) -> Result<Position, ParseError> {
-        let sfen = str::from_utf8(input).map_err(ParseError::Utf8)?;
-        let mut pos = Position::new();
-        pos.set_sfen(sfen).map_err(ParseError::Sfen)?;
-        Ok(pos)
-    }
-}
-
 fn main() -> Result<(), std::io::Error> {
     let matches = App::new("Tsumeshogi Solver")
         .version("0.1")
@@ -96,40 +84,57 @@ fn main() -> Result<(), std::io::Error> {
                 .multiple(true),
         )
         .get_matches();
-
     let verbose = matches.is_present("v");
     let inputs = matches.values_of("INPUT").unwrap().collect::<Vec<_>>();
+
+    Factory::init();
     match matches.value_of("format").unwrap() {
-        "sfen" => run(SfenParser, &inputs, verbose),
-        "csa" => run(CsaParser, &inputs, verbose),
-        "kif" => run(KifParser, &inputs, verbose),
+        "sfen" => run_sfen(&inputs, verbose),
+        "csa" => run_parse(CsaParser, &inputs, verbose),
+        "kif" => run_parse(KifParser, &inputs, verbose),
         _ => panic!("unknown format"),
     }
 }
 
-fn run<T>(parser: T, inputs: &[&str], verbose: bool) -> Result<(), std::io::Error>
+fn run_sfen(inputs: &[&str], verbose: bool) -> Result<(), std::io::Error> {
+    if inputs == ["-"] {
+        let stdin = std::io::stdin();
+        for line in stdin.lock().lines() {
+            let sfen = line?;
+            let mut pos = Position::new();
+            match pos.set_sfen(&sfen) {
+                Ok(()) => run(pos, &sfen, verbose),
+                Err(e) => {
+                    eprintln!("failed to parse SFEN string: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+    } else {
+        for &input in inputs {
+            let mut pos = Position::new();
+            match pos.set_sfen(input) {
+                Ok(()) => run(pos, input.trim(), verbose),
+                Err(e) => {
+                    eprintln!("failed to parse SFEN string: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn run_parse<T>(parser: T, inputs: &[&str], verbose: bool) -> Result<(), std::io::Error>
 where
     T: Parse,
 {
-    Factory::init();
-
-    let solve = |pos| {
-        if verbose {
-            println!("{}", pos);
-            println!();
-        }
-        println!(
-            "{:?}",
-            solve(pos).iter().map(|m| m.to_string()).collect::<Vec<_>>()
-        );
-    };
-
     if inputs == ["-"] {
         let stdin = std::io::stdin();
         let mut buf = Vec::new();
         stdin.lock().read_to_end(&mut buf)?;
         match parser.parse(&buf) {
-            Ok(pos) => solve(pos),
+            Ok(pos) => run(pos, "-", verbose),
             Err(e) => {
                 eprintln!("failed to parse input: {}", e);
                 std::process::exit(1);
@@ -147,7 +152,7 @@ where
             };
             file.read_to_end(&mut buf)?;
             match parser.parse(&buf) {
-                Ok(pos) => solve(pos),
+                Ok(pos) => run(pos, input, verbose),
                 Err(e) => {
                     eprintln!("failed to parse input {}: {}", input, e);
                     std::process::exit(1);
@@ -156,6 +161,19 @@ where
         }
     }
     Ok(())
+}
+
+fn run(pos: Position, input: &str, verbose: bool) {
+    print!("{}: ", input);
+    if verbose {
+        println!();
+        println!("{}", pos);
+        println!();
+    }
+    println!(
+        "{:?}",
+        solve(pos).iter().map(|m| m.to_string()).collect::<Vec<_>>()
+    );
 }
 
 fn solve(pos: Position) -> Vec<Move> {
