@@ -3,7 +3,7 @@ use itertools::Itertools;
 
 impl Position {
     pub fn to_sfen(&self) -> String {
-        (0..9)
+        let board = (0..9)
             .map(|rank| {
                 let mut s = String::new();
                 let mut num_spaces = 0;
@@ -23,7 +23,10 @@ impl Position {
                 }
                 s
             })
-            .join("/")
+            .join("/");
+        let color = self.side_to_move.to_sfen();
+        let hand = self.hand.to_sfen();
+        format!("{} {} {} 1", board, color, hand)
     }
 }
 
@@ -97,9 +100,7 @@ impl Hand {
 
 impl Record {
     pub fn to_sfen(&self) -> String {
-        let board = self.pos.to_sfen();
-        let color = self.pos.side_to_move.to_sfen();
-        let hand = self.pos.hand.to_sfen();
-        format!("{} {} {} 1", board, color, hand)
+        // TODO: moves
+        self.pos.to_sfen()
     }
 }

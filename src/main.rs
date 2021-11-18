@@ -33,7 +33,7 @@ impl Parse for CsaParser {
         match parse_csa(str::from_utf8(input).map_err(ParseError::Utf8)?) {
             Ok(record) => {
                 let mut pos = Position::new();
-                match pos.set_sfen(&Record::from(record).to_sfen()) {
+                match pos.set_sfen(&Record::from(record).pos.to_sfen()) {
                     Ok(_) => Ok(pos),
                     Err(e) => Err(ParseError::Sfen(e)),
                 }
@@ -50,7 +50,7 @@ impl Parse for KifParser {
         match parse_kif(input) {
             Ok(record) => {
                 let mut pos = Position::new();
-                pos.set_sfen(&record.to_sfen())
+                pos.set_sfen(&record.pos.to_sfen())
                     .expect("failed to parse SFEN string");
                 Ok(pos)
             }
