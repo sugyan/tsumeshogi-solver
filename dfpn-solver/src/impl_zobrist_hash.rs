@@ -3,6 +3,7 @@ use rand::distributions::{Distribution, Standard};
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square};
+use std::fmt::Debug;
 use std::{hash::Hash, ops::BitXorAssign};
 
 pub struct ZobristHashPosition<T> {
@@ -52,7 +53,7 @@ where
 
 impl<V> HashPosition for ZobristHashPosition<V>
 where
-    V: Copy + Default + Eq + Hash + BitXorAssign,
+    V: Copy + Debug + Default + Eq + Hash + BitXorAssign,
     Standard: Distribution<V>,
 {
     type T = V;
@@ -124,6 +125,9 @@ where
     }
     fn player_bb(&self, c: Color) -> &Bitboard {
         self.pos.player_bb(c)
+    }
+    fn ply(&self) -> u16 {
+        self.pos.ply()
     }
     fn side_to_move(&self) -> Color {
         self.pos.side_to_move()

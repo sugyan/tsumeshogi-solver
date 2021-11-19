@@ -31,6 +31,9 @@ impl HashPosition for DefaultHashPosition {
     fn player_bb(&self, c: Color) -> &Bitboard {
         self.pos.player_bb(c)
     }
+    fn ply(&self) -> u16 {
+        self.pos.ply()
+    }
     fn side_to_move(&self) -> Color {
         self.pos.side_to_move()
     }

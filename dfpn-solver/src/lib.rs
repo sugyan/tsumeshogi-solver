@@ -6,13 +6,13 @@ pub mod impl_zobrist_hash;
 use impl_default_hash::DefaultHashPosition;
 use impl_hashmap_table::HashMapTable;
 use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square};
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
 type U = u32;
 pub const INF: U = U::MAX;
 
 pub trait HashPosition: Default {
-    type T: Eq + Hash + Copy;
+    type T: Eq + Hash + Copy + Debug;
     fn find_king(&self, c: Color) -> Option<Square>;
     fn hand(&self, p: Piece) -> u8;
     fn in_check(&self, color: Color) -> bool;
@@ -20,6 +20,7 @@ pub trait HashPosition: Default {
     fn move_candidates(&self, sq: Square, p: Piece) -> Bitboard;
     fn piece_at(&self, sq: Square) -> &Option<Piece>;
     fn player_bb(&self, c: Color) -> &Bitboard;
+    fn ply(&self) -> u16;
     fn side_to_move(&self) -> Color;
     fn unmake_move(&mut self) -> Result<(), MoveError>;
 
@@ -64,15 +65,17 @@ where
         }
     }
     fn phi(&self, pd: &(U, U)) -> U {
-        match self.pos.side_to_move() {
-            Color::Black => pd.0,
-            Color::White => pd.1,
+        if self.pos.ply() & 1 == 1 {
+            pd.0
+        } else {
+            pd.1
         }
     }
     fn delta(&self, pd: &(U, U)) -> U {
-        match self.pos.side_to_move() {
-            Color::Black => pd.1,
-            Color::White => pd.0,
+        if self.pos.ply() & 1 == 1 {
+            pd.1
+        } else {
+            pd.0
         }
     }
     // ノードの展開
@@ -80,9 +83,10 @@ where
         // 1. ハッシュを引く
         let (p, d) = self.table.look_up_hash(&hash);
         if self.phi(pd) <= p || self.delta(pd) <= d {
-            return match self.pos.side_to_move() {
-                Color::Black => (p, d),
-                Color::White => (d, p),
+            return if self.pos.ply() & 1 == 1 {
+                (p, d)
+            } else {
+                (d, p)
             };
         }
         // 2. 合法手の生成
@@ -90,15 +94,17 @@ where
         if children.is_empty() {
             // ?
             self.table.put_in_hash(hash, (INF, 0));
-            return match self.pos.side_to_move() {
-                Color::Black => (INF, 0),
-                Color::White => (0, INF),
+            return if self.pos.ply() & 1 == 1 {
+                (INF, 0)
+            } else {
+                (0, INF)
             };
         }
         // 3. ハッシュによるサイクル回避
-        match self.pos.side_to_move() {
-            Color::Black => self.table.put_in_hash(hash, (pd.0, pd.1)),
-            Color::White => self.table.put_in_hash(hash, (pd.1, pd.0)),
+        if self.pos.ply() & 1 == 1 {
+            self.table.put_in_hash(hash, (pd.0, pd.1));
+        } else {
+            self.table.put_in_hash(hash, (pd.1, pd.0));
         }
         // 4. 多重反復深化
         loop {
@@ -107,9 +113,10 @@ where
             let sp = self.sum_phi(&children);
             if self.phi(pd) <= md || self.delta(pd) <= sp {
                 self.table.put_in_hash(hash, (md, sp));
-                return match self.pos.side_to_move() {
-                    Color::Black => (md, sp),
-                    Color::White => (sp, md),
+                return if self.pos.ply() & 1 == 1 {
+                    (md, sp)
+                } else {
+                    (sp, md)
                 };
             }
             let (best, phi_c, delta_c, delta_2) = self.select_child(&children);
@@ -127,10 +134,11 @@ where
             };
             let (m, h) = best.expect("best move");
             self.pos.make_move(m).expect("failed to make move");
-            match self.pos.side_to_move() {
-                Color::Black => self.mid(h, &(phi_n_c, delta_n_c)),
-                Color::White => self.mid(h, &(delta_n_c, phi_n_c)),
-            };
+            if self.pos.ply() & 1 == 1 {
+                self.mid(h, &(phi_n_c, delta_n_c));
+            } else {
+                self.mid(h, &(delta_n_c, phi_n_c));
+            }
             self.pos.unmake_move().expect("failed to unmake move");
         }
     }
@@ -179,6 +187,7 @@ pub fn generate_legal_moves<P>(pos: &mut P) -> Vec<(Move, P::T)>
 where
     P: HashPosition,
 {
+    let is_attacking = pos.ply() & 1 == 1;
     let mut children = Vec::new();
     // normal moves
     for from in *pos.player_bb(pos.side_to_move()) {
@@ -186,7 +195,7 @@ where
             for to in pos.move_candidates(from, p) {
                 for promote in [true, false] {
                     let m = Move::Normal { from, to, promote };
-                    if let Ok(h) = try_legal_move(pos, m) {
+                    if let Ok(h) = try_legal_move(pos, m, is_attacking) {
                         children.push((m, h));
                     }
                 }
@@ -194,66 +203,68 @@ where
         }
     }
     // drop moves
-    if let Some(king_sq) = pos.find_king(Color::White) {
-        match pos.side_to_move() {
-            Color::Black => {
-                for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
-                    if pos.hand(Piece {
+    let target_color = if is_attacking {
+        pos.side_to_move().flip()
+    } else {
+        pos.side_to_move()
+    };
+    if let Some(king_sq) = pos.find_king(target_color) {
+        if pos.ply() & 1 == 1 {
+            for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
+                if pos.hand(Piece {
+                    piece_type,
+                    color: target_color.flip(),
+                }) == 0
+                {
+                    continue;
+                }
+                // 玉をその駒で狙える位置のみ探索
+                for to in pos.move_candidates(
+                    king_sq,
+                    Piece {
                         piece_type,
-                        color: Color::Black,
-                    }) == 0
-                    {
-                        continue;
-                    }
-                    // 玉をその駒で狙える位置のみ探索
-                    for to in pos.move_candidates(
-                        king_sq,
-                        Piece {
-                            piece_type,
-                            color: Color::White,
-                        },
-                    ) {
-                        let m = Move::Drop { to, piece_type };
-                        if let Ok(h) = try_legal_move(pos, m) {
-                            children.push((m, h));
-                        }
+                        color: target_color,
+                    },
+                ) {
+                    let m = Move::Drop { to, piece_type };
+                    if let Ok(h) = try_legal_move(pos, m, is_attacking) {
+                        children.push((m, h));
                     }
                 }
             }
-            Color::White => {
-                // 玉から飛車角で狙われ得る位置の候補
-                let mut candidates = &pos.move_candidates(
-                    king_sq,
-                    Piece {
-                        piece_type: PieceType::Rook,
-                        color: Color::White,
-                    },
-                ) | &pos.move_candidates(
-                    king_sq,
-                    Piece {
-                        piece_type: PieceType::Bishop,
-                        color: Color::White,
-                    },
-                );
-                for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
-                    if pos.hand(Piece {
-                        piece_type,
-                        color: Color::White,
-                    }) == 0
-                    {
-                        continue;
-                    }
-                    for to in candidates {
-                        let m = Move::Drop { to, piece_type };
-                        match try_legal_move(pos, m) {
-                            Ok(h) => children.push((m, h)),
-                            Err(MoveError::InCheck) => {
-                                // 合駒として機能しない位置は候補から外す
-                                candidates.clear_at(to);
-                            }
-                            Err(_) => {
-                                // ignore
-                            }
+        } else {
+            // 玉から飛車角で狙われ得る位置の候補
+            let mut candidates = &pos.move_candidates(
+                king_sq,
+                Piece {
+                    piece_type: PieceType::Rook,
+                    color: target_color,
+                },
+            ) | &pos.move_candidates(
+                king_sq,
+                Piece {
+                    piece_type: PieceType::Bishop,
+                    color: target_color,
+                },
+            );
+            for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
+                if pos.hand(Piece {
+                    piece_type,
+                    color: target_color,
+                }) == 0
+                {
+                    continue;
+                }
+                for to in candidates {
+                    let m = Move::Drop { to, piece_type };
+                    match try_legal_move(pos, m, is_attacking) {
+                        Ok(h) => children.push((m, h)),
+                        Err(MoveError::InCheck) => {
+                            // 合駒として機能しない位置は候補から外す
+                            candidates.clear_at(to);
+                        }
+                        Err(_) => {
+                            // ignore
                         }
                     }
                 }
@@ -263,14 +274,14 @@ where
     children
 }
 
-fn try_legal_move<P>(pos: &mut P, m: Move) -> Result<P::T, MoveError>
+fn try_legal_move<P>(pos: &mut P, m: Move, is_attacking: bool) -> Result<P::T, MoveError>
 where
     P: HashPosition,
 {
     match pos.make_move(m) {
         Ok(_) => {
             let mut hash = None;
-            if pos.side_to_move() == Color::Black || pos.in_check(Color::White) {
+            if !is_attacking || pos.in_check(pos.side_to_move()) {
                 hash = Some(pos.current_hash());
             }
             pos.unmake_move().expect("failed to unmake move");
@@ -301,6 +312,13 @@ mod tests {
         pos
     }
 
+    fn example_position_reverse() -> Position {
+        let mut pos = Position::new();
+        pos.set_sfen("9/9/9/9/7+b1/9/4s4/9/3SKS3 w 2RB4G4N4L18Ps 1")
+            .expect("failed to parse SFEN string");
+        pos
+    }
+
     #[test]
     fn test_impl_default_hashmap() {
         Factory::init();
@@ -309,6 +327,10 @@ mod tests {
         assert!(solver.table.is_empty());
         solver.dfpn(example_position());
         assert_eq!(171, solver.table.len());
+        assert_eq!(
+            (0, INF),
+            solver.table.look_up_hash(&solver.pos.current_hash())
+        );
     }
 
     #[test]
@@ -322,6 +344,10 @@ mod tests {
         assert!(solver.table.is_empty());
         solver.dfpn(example_position());
         assert_eq!(171, solver.table.len());
+        assert_eq!(
+            (0, INF),
+            solver.table.look_up_hash(&solver.pos.current_hash())
+        );
     }
 
     #[test]
@@ -332,5 +358,23 @@ mod tests {
         assert!(solver.table.is_empty());
         solver.dfpn(example_position());
         assert_eq!(171, solver.table.len());
+        assert_eq!(
+            (0, INF),
+            solver.table.look_up_hash(&solver.pos.current_hash())
+        );
+    }
+
+    #[test]
+    fn test_reverse() {
+        Factory::init();
+
+        let mut solver: Solver = Solver::default();
+        assert!(solver.table.is_empty());
+        solver.dfpn(example_position_reverse());
+        assert!(!solver.table.is_empty());
+        assert_eq!(
+            (0, INF),
+            solver.table.look_up_hash(&solver.pos.current_hash())
+        );
     }
 }
