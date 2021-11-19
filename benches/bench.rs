@@ -27,7 +27,7 @@ fn bench_default_hashmap(b: &mut test::Bencher) {
         for sfen in test_cases() {
             let mut pos = Position::new();
             pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            Solver::new(DefaultHashPosition::new(pos), HashMapTable::new()).dfpn();
+            Solver::new(DefaultHashPosition::default(), HashMapTable::default()).dfpn(pos);
         }
     });
 }
@@ -40,7 +40,11 @@ fn bench_zobrist_hashmap(b: &mut test::Bencher) {
         for sfen in test_cases() {
             let mut pos = Position::new();
             pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            Solver::new(ZobristHashPosition::new(pos), HashMapTable::<u64>::new()).dfpn();
+            Solver::new(
+                ZobristHashPosition::default(),
+                HashMapTable::<u64>::default(),
+            )
+            .dfpn(pos);
         }
     });
 }
@@ -53,7 +57,7 @@ fn bench_zobrist_vec(b: &mut test::Bencher) {
         for sfen in test_cases() {
             let mut pos = Position::new();
             pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            Solver::new(ZobristHashPosition::new(pos), VecTable::new(16)).dfpn();
+            Solver::new(ZobristHashPosition::default(), VecTable::new(16)).dfpn(pos);
         }
     });
 }

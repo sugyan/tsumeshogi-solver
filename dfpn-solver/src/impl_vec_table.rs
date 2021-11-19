@@ -16,6 +16,12 @@ impl VecTable {
     }
 }
 
+impl Default for VecTable {
+    fn default() -> Self {
+        Self::new(16)
+    }
+}
+
 impl Table for VecTable {
     type T = usize;
     fn look_up_hash(&self, key: &Self::T) -> (U, U) {

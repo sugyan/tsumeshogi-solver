@@ -3,14 +3,9 @@ use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+#[derive(Default)]
 pub struct DefaultHashPosition {
     pos: Position,
-}
-
-impl DefaultHashPosition {
-    pub fn new(pos: Position) -> Self {
-        Self { pos }
-    }
 }
 
 impl HashPosition for DefaultHashPosition {
@@ -43,6 +38,9 @@ impl HashPosition for DefaultHashPosition {
         self.pos.unmake_move()
     }
 
+    fn set_position(&mut self, pos: Position) {
+        self.pos = pos;
+    }
     fn current_hash(&self) -> u64 {
         let mut s = DefaultHasher::new();
         self.hash(&mut s);

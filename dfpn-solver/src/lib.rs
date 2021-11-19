@@ -3,13 +3,15 @@ pub mod impl_hashmap_table;
 pub mod impl_vec_table;
 pub mod impl_zobrist_hash;
 
-use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Square};
+use impl_default_hash::DefaultHashPosition;
+use impl_hashmap_table::HashMapTable;
+use shogi::{Bitboard, Color, Move, MoveError, Piece, PieceType, Position, Square};
 use std::hash::Hash;
 
 type U = u32;
 pub const INF: U = U::MAX;
 
-pub trait HashPosition {
+pub trait HashPosition: Default {
     type T: Eq + Hash + Copy;
     fn find_king(&self, c: Color) -> Option<Square>;
     fn hand(&self, p: Piece) -> u8;
@@ -21,10 +23,11 @@ pub trait HashPosition {
     fn side_to_move(&self) -> Color;
     fn unmake_move(&mut self) -> Result<(), MoveError>;
 
+    fn set_position(&mut self, pos: Position);
     fn current_hash(&self) -> Self::T;
 }
 
-pub trait Table {
+pub trait Table: Default {
     type T;
     // ハッシュを引く (本当は優越関係が使える)
     fn look_up_hash(&self, key: &Self::T) -> (U, U);
@@ -35,7 +38,8 @@ pub trait Table {
     fn is_empty(&self) -> bool;
 }
 
-pub struct Solver<P, T> {
+#[derive(Default)]
+pub struct Solver<P = DefaultHashPosition, T = HashMapTable> {
     pub pos: P,
     pub table: T,
 }
@@ -50,7 +54,8 @@ where
     }
     // 「df-pnアルゴリズムの詰将棋を解くプログラムへの応用」
     // https://ci.nii.ac.jp/naid/110002726401
-    pub fn dfpn(&mut self) {
+    pub fn dfpn(&mut self, pos: Position) {
+        self.pos.set_position(pos);
         let hash = self.pos.current_hash();
         // ルートでの反復深化
         let (pn, dn) = self.mid(hash, &(INF - 1, INF - 1));
@@ -300,10 +305,9 @@ mod tests {
     fn test_impl_default_hashmap() {
         Factory::init();
 
-        let pos = example_position();
-        let mut solver = Solver::new(DefaultHashPosition::new(pos), HashMapTable::new());
+        let mut solver = Solver::new(DefaultHashPosition::default(), HashMapTable::default());
         assert!(solver.table.is_empty());
-        solver.dfpn();
+        solver.dfpn(example_position());
         assert_eq!(171, solver.table.len());
     }
 
@@ -311,10 +315,12 @@ mod tests {
     fn test_impl_zobrist_hashmap() {
         Factory::init();
 
-        let pos = example_position();
-        let mut solver = Solver::new(ZobristHashPosition::<u64>::new(pos), HashMapTable::new());
+        let mut solver = Solver::new(
+            ZobristHashPosition::default(),
+            HashMapTable::<u64>::default(),
+        );
         assert!(solver.table.is_empty());
-        solver.dfpn();
+        solver.dfpn(example_position());
         assert_eq!(171, solver.table.len());
     }
 
@@ -322,10 +328,9 @@ mod tests {
     fn test_impl_zobrist_vec() {
         Factory::init();
 
-        let pos = example_position();
-        let mut solver = Solver::new(ZobristHashPosition::new(pos), VecTable::new(16));
+        let mut solver = Solver::new(ZobristHashPosition::default(), VecTable::new(16));
         assert!(solver.table.is_empty());
-        solver.dfpn();
+        solver.dfpn(example_position());
         assert_eq!(171, solver.table.len());
     }
 }

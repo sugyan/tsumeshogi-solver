@@ -2,17 +2,12 @@ use crate::{Table, U};
 use std::collections::HashMap;
 use std::hash::Hash;
 
-pub struct HashMapTable<T>
-where
-    T: Eq + Hash,
-{
+#[derive(Default)]
+pub struct HashMapTable<T = u64> {
     table: HashMap<T, (U, U)>,
 }
 
-impl<T> HashMapTable<T>
-where
-    T: Eq + Hash,
-{
+impl<T> HashMapTable<T> {
     pub fn new() -> Self {
         Self {
             table: HashMap::new(),
@@ -20,18 +15,9 @@ where
     }
 }
 
-impl<T> Default for HashMapTable<T>
-where
-    T: Eq + Hash,
-{
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl<V> Table for HashMapTable<V>
 where
-    V: Eq + Hash,
+    V: Default + Eq + Hash,
 {
     type T = V;
     fn look_up_hash(&self, key: &Self::T) -> (U, U) {

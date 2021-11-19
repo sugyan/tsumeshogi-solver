@@ -1,7 +1,5 @@
 use clap::{App, Arg};
 use csa::{parse_csa, CsaError};
-use dfpn_solver::impl_default_hash::DefaultHashPosition;
-use dfpn_solver::impl_hashmap_table::HashMapTable;
 use dfpn_solver::{generate_legal_moves, HashPosition, Solver, Table, INF};
 use shogi::{bitboard::Factory, Color, Move, Piece, PieceType, Position, SfenError};
 use shogi_converter::kif_converter::{parse_kif, KifError};
@@ -177,8 +175,8 @@ fn run(pos: Position, input: &str, verbose: bool) {
 }
 
 fn solve(pos: Position) -> Vec<Move> {
-    let mut solver = Solver::new(DefaultHashPosition::new(pos), HashMapTable::new());
-    solver.dfpn();
+    let mut solver: Solver = Solver::default();
+    solver.dfpn(pos);
 
     let mut answers = Vec::new();
     search_all_mates(&mut solver, &mut Vec::new(), &mut answers);

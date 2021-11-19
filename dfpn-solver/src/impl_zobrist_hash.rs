@@ -13,13 +13,12 @@ pub struct ZobristHashPosition<T> {
     hash_history: Vec<T>,
 }
 
-impl<T> ZobristHashPosition<T>
+impl<T> Default for ZobristHashPosition<T>
 where
-    T: Default + Copy + BitXorAssign,
+    T: Copy + Default,
     Standard: Distribution<T>,
 {
-    pub fn new(pos: Position) -> Self {
-        // init table
+    fn default() -> Self {
         let mut rng = SmallRng::seed_from_u64(0);
         let mut table_board = [[[T::default(); 2]; 14]; 81];
         let mut table_hand = [[[T::default(); 19]; 2]; 14];
@@ -41,33 +40,20 @@ where
         Color::iter().for_each(|color| {
             table_turn[color.index()] = rng.gen();
         });
-        // calcualte hash for the position
-        let mut hash = T::default();
-        Square::iter().for_each(|sq| {
-            if let Some(p) = pos.piece_at(sq) {
-                hash ^= table_board[sq.index()][p.piece_type.index()][p.color.index()];
-            }
-        });
-        PieceType::iter().for_each(|piece_type| {
-            Color::iter().for_each(|color| {
-                let num = pos.hand(Piece { piece_type, color });
-                hash ^= table_hand[piece_type.index()][color.index()][num as usize];
-            });
-        });
-        hash ^= table_turn[pos.side_to_move().index()];
         Self {
-            pos,
+            pos: Position::new(),
             table_board,
             table_hand,
             table_turn,
-            hash_history: vec![hash],
+            hash_history: Vec::new(),
         }
     }
 }
 
 impl<V> HashPosition for ZobristHashPosition<V>
 where
-    V: Copy + Eq + Hash + BitXorAssign,
+    V: Copy + Default + Eq + Hash + BitXorAssign,
+    Standard: Distribution<V>,
 {
     type T = V;
     fn find_king(&self, c: Color) -> Option<Square> {
@@ -152,6 +138,23 @@ where
         }
     }
 
+    fn set_position(&mut self, pos: Position) {
+        let mut hash = Self::T::default();
+        Square::iter().for_each(|sq| {
+            if let Some(p) = pos.piece_at(sq) {
+                hash ^= self.table_board[sq.index()][p.piece_type.index()][p.color.index()];
+            }
+        });
+        PieceType::iter().for_each(|piece_type| {
+            Color::iter().for_each(|color| {
+                let num = pos.hand(Piece { piece_type, color });
+                hash ^= self.table_hand[piece_type.index()][color.index()][num as usize];
+            });
+        });
+        hash ^= self.table_turn[pos.side_to_move().index()];
+        self.hash_history = vec![hash];
+        self.pos = pos;
+    }
     fn current_hash(&self) -> V {
         *self.hash_history.last().expect("latest hash has not found")
     }
