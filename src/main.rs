@@ -182,6 +182,7 @@ fn solve(pos: Position) -> Vec<Move> {
     search_all_mates(&mut solver, &mut Vec::new(), &mut answers);
 
     answers.sort_by_cached_key(|(moves, hands)| (Reverse(moves.len()), *hands));
+    answers.dedup();
     answers
         .get(0)
         .map_or(Vec::new(), |(moves, _)| moves.clone())
@@ -216,10 +217,32 @@ fn search_all_mates<P, T>(
         }
     }
     if leaf {
-        // 無駄合駒判定
+        let mut moves = moves.clone();
+        // 最終2手が「合駒→同」の場合は、合駒無効の詰みなので削除
+        while moves.len() > 2 {
+            if let (
+                Move::Drop {
+                    to: drop_to,
+                    piece_type: _,
+                },
+                Move::Normal {
+                    from: _,
+                    to: move_to,
+                    promote: _,
+                },
+            ) = (moves[moves.len() - 2], moves[moves.len() - 1])
+            {
+                if drop_to == move_to {
+                    moves.pop();
+                    moves.pop();
+                    continue;
+                }
+            }
+            break;
+        }
         // 1. 玉方が合駒として打った駒が後に取られて
         // 2. 最終的に攻方の持駒に入っている
-        // を満たす場合に解答候補から外す
+        // を満たす場合、無駄合駒とみなし解答候補から外す
         let mut drops = vec![None; 81];
         for (i, &m) in moves.iter().enumerate() {
             match i & 1 {
@@ -250,7 +273,7 @@ fn search_all_mates<P, T>(
             }
         }
         answers.push((
-            moves.clone(),
+            moves,
             PieceType::iter()
                 .filter_map(|piece_type| {
                     if piece_type.is_hand_piece() {
