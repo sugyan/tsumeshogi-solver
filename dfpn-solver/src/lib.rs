@@ -220,62 +220,65 @@ where
         Node::And => pos.side_to_move(),
     };
     if let Some(king_sq) = pos.find_king(target_color) {
-        if pos.ply() & 1 == 1 {
-            for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
-                if pos.hand(Piece {
-                    piece_type,
-                    color: target_color.flip(),
-                }) == 0
-                {
-                    continue;
-                }
-                // 玉をその駒で狙える位置のみ探索
-                for to in pos.move_candidates(
-                    king_sq,
-                    Piece {
+        match node {
+            Node::Or => {
+                for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
+                    if pos.hand(Piece {
                         piece_type,
-                        color: target_color,
-                    },
-                ) {
-                    let m = Move::Drop { to, piece_type };
-                    if let Ok(h) = try_legal_move(pos, m, node) {
-                        children.push((m, h));
+                        color: target_color.flip(),
+                    }) == 0
+                    {
+                        continue;
+                    }
+                    // 玉をその駒で狙える位置のみ探索
+                    for to in pos.move_candidates(
+                        king_sq,
+                        Piece {
+                            piece_type,
+                            color: target_color,
+                        },
+                    ) {
+                        let m = Move::Drop { to, piece_type };
+                        if let Ok(h) = try_legal_move(pos, m, node) {
+                            children.push((m, h));
+                        }
                     }
                 }
             }
-        } else {
-            // 玉から飛車角で狙われ得る位置の候補
-            let mut candidates = &pos.move_candidates(
-                king_sq,
-                Piece {
-                    piece_type: PieceType::Rook,
-                    color: target_color,
-                },
-            ) | &pos.move_candidates(
-                king_sq,
-                Piece {
-                    piece_type: PieceType::Bishop,
-                    color: target_color,
-                },
-            );
-            for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
-                if pos.hand(Piece {
-                    piece_type,
-                    color: target_color,
-                }) == 0
-                {
-                    continue;
-                }
-                for to in candidates {
-                    let m = Move::Drop { to, piece_type };
-                    match try_legal_move(pos, m, node) {
-                        Ok(h) => children.push((m, h)),
-                        Err(MoveError::InCheck) => {
-                            // 合駒として機能しない位置は候補から外す
-                            candidates.clear_at(to);
-                        }
-                        Err(_) => {
-                            // ignore
+            Node::And => {
+                // 玉から飛車角で狙われ得る位置の候補
+                let mut candidates = &pos.move_candidates(
+                    king_sq,
+                    Piece {
+                        piece_type: PieceType::Rook,
+                        color: target_color,
+                    },
+                ) | &pos.move_candidates(
+                    king_sq,
+                    Piece {
+                        piece_type: PieceType::Bishop,
+                        color: target_color,
+                    },
+                );
+                for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
+                    if pos.hand(Piece {
+                        piece_type,
+                        color: target_color,
+                    }) == 0
+                    {
+                        continue;
+                    }
+                    for to in candidates {
+                        let m = Move::Drop { to, piece_type };
+                        match try_legal_move(pos, m, node) {
+                            Ok(h) => children.push((m, h)),
+                            Err(MoveError::InCheck) => {
+                                // 合駒として機能しない位置は候補から外す
+                                candidates.clear_at(to);
+                            }
+                            Err(_) => {
+                                // ignore
+                            }
                         }
                     }
                 }
