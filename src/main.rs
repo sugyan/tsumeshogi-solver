@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use csa::{parse_csa, CsaError};
-use dfpn_solver::{generate_legal_moves, HashPosition, Solver, Table, INF};
+use dfpn_solver::{generate_legal_moves, HashPosition, Node, Solver, Table, INF};
 use shogi::{bitboard::Factory, Move, Piece, PieceType, Position, SfenError};
 use shogi_converter::kif_converter::{parse_kif, KifError};
 use shogi_converter::Record;
@@ -196,12 +196,16 @@ fn search_all_mates<P, T>(
     T: Table<T = P::T>,
 {
     let mut leaf = true;
-    let mate_pd = if s.pos.ply() & 1 == 1 {
-        (INF, 0)
+    let node = if moves.len() & 1 == 0 {
+        Node::Or
     } else {
-        (0, INF)
+        Node::And
     };
-    for &(m, h) in &generate_legal_moves(&mut s.pos) {
+    let mate_pd = match node {
+        Node::Or => (INF, 0),
+        Node::And => (0, INF),
+    };
+    for &(m, h) in &generate_legal_moves(&mut s.pos, node) {
         if s.table.look_up_hash(&h) == mate_pd {
             leaf = false;
             moves.push(m);

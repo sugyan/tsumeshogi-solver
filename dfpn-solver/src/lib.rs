@@ -11,6 +11,12 @@ use std::{fmt::Debug, hash::Hash};
 type U = u32;
 pub const INF: U = U::MAX;
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum Node {
+    Or,
+    And,
+}
+
 pub trait HashPosition: Default {
     type T: Eq + Hash + Copy + Debug;
     fn find_king(&self, c: Color) -> Option<Square>;
@@ -43,6 +49,7 @@ pub trait Table: Default {
 pub struct Solver<P = DefaultHashPosition, T = HashMapTable> {
     pub pos: P,
     pub table: T,
+    base_ply: u16,
 }
 
 impl<P, T> Solver<P, T>
@@ -51,11 +58,16 @@ where
     T: Table<T = P::T>,
 {
     pub fn new(pos: P, table: T) -> Self {
-        Self { pos, table }
+        Self {
+            pos,
+            table,
+            base_ply: 0,
+        }
     }
     // 「df-pnアルゴリズムの詰将棋を解くプログラムへの応用」
     // https://ci.nii.ac.jp/naid/110002726401
     pub fn dfpn(&mut self, pos: Position) {
+        self.base_ply = pos.ply();
         self.pos.set_position(pos);
         let hash = self.pos.current_hash();
         // ルートでの反復深化
@@ -64,18 +76,23 @@ where
             self.mid(hash, &(INF, INF));
         }
     }
-    fn phi(&self, pd: &(U, U)) -> U {
-        if self.pos.ply() & 1 == 1 {
-            pd.0
+    fn node(&self) -> Node {
+        if (self.pos.ply() ^ self.base_ply) & 1 == 0 {
+            Node::Or
         } else {
-            pd.1
+            Node::And
+        }
+    }
+    fn phi(&self, pd: &(U, U)) -> U {
+        match self.node() {
+            Node::Or => pd.0,
+            Node::And => pd.1,
         }
     }
     fn delta(&self, pd: &(U, U)) -> U {
-        if self.pos.ply() & 1 == 1 {
-            pd.1
-        } else {
-            pd.0
+        match self.node() {
+            Node::Or => pd.1,
+            Node::And => pd.0,
         }
     }
     // ノードの展開
@@ -83,29 +100,27 @@ where
         // 1. ハッシュを引く
         let (p, d) = self.table.look_up_hash(&hash);
         if self.phi(pd) <= p || self.delta(pd) <= d {
-            return if self.pos.ply() & 1 == 1 {
-                (p, d)
-            } else {
-                (d, p)
+            return match self.node() {
+                Node::Or => (p, d),
+                Node::And => (d, p),
             };
         }
         // 2. 合法手の生成
-        let children = generate_legal_moves(&mut self.pos);
+        let node = self.node();
+        let children = generate_legal_moves(&mut self.pos, node);
         if children.is_empty() {
             // ?
             self.table.put_in_hash(hash, (INF, 0));
-            return if self.pos.ply() & 1 == 1 {
-                (INF, 0)
-            } else {
-                (0, INF)
+            return match self.node() {
+                Node::Or => (INF, 0),
+                Node::And => (0, INF),
             };
         }
         // 3. ハッシュによるサイクル回避
-        if self.pos.ply() & 1 == 1 {
-            self.table.put_in_hash(hash, (pd.0, pd.1));
-        } else {
-            self.table.put_in_hash(hash, (pd.1, pd.0));
-        }
+        match self.node() {
+            Node::Or => self.table.put_in_hash(hash, (pd.0, pd.1)),
+            Node::And => self.table.put_in_hash(hash, (pd.1, pd.0)),
+        };
         // 4. 多重反復深化
         loop {
             // φ か δ がそのしきい値以上なら探索終了
@@ -113,10 +128,9 @@ where
             let sp = self.sum_phi(&children);
             if self.phi(pd) <= md || self.delta(pd) <= sp {
                 self.table.put_in_hash(hash, (md, sp));
-                return if self.pos.ply() & 1 == 1 {
-                    (md, sp)
-                } else {
-                    (sp, md)
+                return match self.node() {
+                    Node::Or => (md, sp),
+                    Node::And => (sp, md),
                 };
             }
             let (best, phi_c, delta_c, delta_2) = self.select_child(&children);
@@ -134,11 +148,10 @@ where
             };
             let (m, h) = best.expect("best move");
             self.pos.make_move(m).expect("failed to make move");
-            if self.pos.ply() & 1 == 1 {
-                self.mid(h, &(phi_n_c, delta_n_c));
-            } else {
-                self.mid(h, &(delta_n_c, phi_n_c));
-            }
+            match self.node() {
+                Node::Or => self.mid(h, &(phi_n_c, delta_n_c)),
+                Node::And => self.mid(h, &(delta_n_c, phi_n_c)),
+            };
             self.pos.unmake_move().expect("failed to unmake move");
         }
     }
@@ -183,11 +196,10 @@ where
     }
 }
 
-pub fn generate_legal_moves<P>(pos: &mut P) -> Vec<(Move, P::T)>
+pub fn generate_legal_moves<P>(pos: &mut P, node: Node) -> Vec<(Move, P::T)>
 where
     P: HashPosition,
 {
-    let is_attacking = pos.ply() & 1 == 1;
     let mut children = Vec::new();
     // normal moves
     for from in *pos.player_bb(pos.side_to_move()) {
@@ -195,7 +207,7 @@ where
             for to in pos.move_candidates(from, p) {
                 for promote in [true, false] {
                     let m = Move::Normal { from, to, promote };
-                    if let Ok(h) = try_legal_move(pos, m, is_attacking) {
+                    if let Ok(h) = try_legal_move(pos, m, node) {
                         children.push((m, h));
                     }
                 }
@@ -203,10 +215,9 @@ where
         }
     }
     // drop moves
-    let target_color = if is_attacking {
-        pos.side_to_move().flip()
-    } else {
-        pos.side_to_move()
+    let target_color = match node {
+        Node::Or => pos.side_to_move().flip(),
+        Node::And => pos.side_to_move(),
     };
     if let Some(king_sq) = pos.find_king(target_color) {
         if pos.ply() & 1 == 1 {
@@ -227,7 +238,7 @@ where
                     },
                 ) {
                     let m = Move::Drop { to, piece_type };
-                    if let Ok(h) = try_legal_move(pos, m, is_attacking) {
+                    if let Ok(h) = try_legal_move(pos, m, node) {
                         children.push((m, h));
                     }
                 }
@@ -257,7 +268,7 @@ where
                 }
                 for to in candidates {
                     let m = Move::Drop { to, piece_type };
-                    match try_legal_move(pos, m, is_attacking) {
+                    match try_legal_move(pos, m, node) {
                         Ok(h) => children.push((m, h)),
                         Err(MoveError::InCheck) => {
                             // 合駒として機能しない位置は候補から外す
@@ -274,14 +285,14 @@ where
     children
 }
 
-fn try_legal_move<P>(pos: &mut P, m: Move, is_attacking: bool) -> Result<P::T, MoveError>
+fn try_legal_move<P>(pos: &mut P, m: Move, node: Node) -> Result<P::T, MoveError>
 where
     P: HashPosition,
 {
     match pos.make_move(m) {
         Ok(_) => {
             let mut hash = None;
-            if !is_attacking || pos.in_check(pos.side_to_move()) {
+            if node == Node::And || pos.in_check(pos.side_to_move()) {
                 hash = Some(pos.current_hash());
             }
             pos.unmake_move().expect("failed to unmake move");
