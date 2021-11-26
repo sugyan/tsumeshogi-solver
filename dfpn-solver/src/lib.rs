@@ -118,8 +118,8 @@ where
         }
         // 3. ハッシュによるサイクル回避
         match self.node() {
-            Node::Or => self.table.put_in_hash(hash, (pd.0, pd.1)),
-            Node::And => self.table.put_in_hash(hash, (pd.1, pd.0)),
+            Node::Or => self.table.put_in_hash(hash, (pd.1, pd.0)),
+            Node::And => self.table.put_in_hash(hash, (pd.0, pd.1)),
         };
         // 4. 多重反復深化
         loop {
