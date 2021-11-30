@@ -271,4 +271,34 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_無駄合駒() {
+        Factory::init();
+
+        let test_cases = vec![
+            "7nl/5B1k1/6Ppp/5+R3/9/9/9/9/9 b Srb4g3s3n3l15p 1", // issues/5,
+        ];
+        for &sfen in &test_cases {
+            let mut pos = Position::new();
+            pos.set_sfen(sfen).expect("failed to parse SFEN string");
+
+            let ret = solve(pos);
+            assert!(ret.len() % 2 == 1);
+            {
+                let mut pos = Position::new();
+                pos.set_sfen(sfen).expect("failed to parse SFEN string");
+                let color = pos.side_to_move().flip();
+                for (i, &m) in ret.iter().enumerate() {
+                    if i % 2 == 0 {
+                        assert!(!pos.in_check(color));
+                    } else {
+                        assert!(pos.in_check(color));
+                    }
+                    pos.make_move(m).expect("failed to make move");
+                }
+                assert!(is_mated(&mut pos));
+            }
+        }
+    }
 }
