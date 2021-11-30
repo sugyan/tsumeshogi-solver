@@ -15,13 +15,6 @@ pub fn solve(pos: Position) -> Vec<Move> {
     );
     solutions.sort_by_cached_key(|&(_, score)| score);
     solutions.dedup();
-    for (v, s) in &solutions {
-        println!(
-            "{:?} {}",
-            v.iter().map(|&m| m.to_string()).collect::<Vec<String>>(),
-            s
-        );
-    }
     solutions
         .last()
         .map_or(Vec::new(), |(moves, _)| moves.clone())
