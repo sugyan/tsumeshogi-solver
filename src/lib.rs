@@ -1,23 +1,29 @@
 use dfpn_solver::{generate_legal_moves, HashPosition, Node, Solver, Table, INF};
 use shogi::{Move, Piece, PieceType, Position};
-use std::{cmp::Reverse, collections::HashSet};
+use std::collections::HashSet;
 
 pub fn solve(pos: Position) -> Vec<Move> {
     let mut solver: Solver = Solver::default();
     solver.dfpn(pos);
 
-    let mut answers = Vec::new();
+    let mut solutions = Vec::new();
     search_all_mates(
         &mut solver,
         &mut Vec::new(),
         &mut HashSet::new(),
-        &mut answers,
+        &mut solutions,
     );
-
-    answers.sort_by_cached_key(|(moves, hands)| (Reverse(moves.len()), *hands));
-    answers.dedup();
-    answers
-        .get(0)
+    solutions.sort_by_cached_key(|&(_, score)| score);
+    solutions.dedup();
+    for (v, s) in &solutions {
+        println!(
+            "{:?} {}",
+            v.iter().map(|&m| m.to_string()).collect::<Vec<String>>(),
+            s
+        );
+    }
+    solutions
+        .last()
         .map_or(Vec::new(), |(moves, _)| moves.clone())
 }
 
@@ -25,12 +31,11 @@ fn search_all_mates<P, T>(
     s: &mut Solver<P, T>,
     moves: &mut Vec<Move>,
     hashes: &mut HashSet<P::T>,
-    answers: &mut Vec<(Vec<Move>, u8)>,
+    solutions: &mut Vec<(Vec<Move>, usize)>,
 ) where
     P: HashPosition,
     T: Table<T = P::T>,
 {
-    let mut leaf = true;
     let node = if moves.len() & 1 == 0 {
         Node::Or
     } else {
@@ -40,93 +45,100 @@ fn search_all_mates<P, T>(
         Node::Or => (INF, 0),
         Node::And => (0, INF),
     };
-    for &(m, h) in &generate_legal_moves(&mut s.pos, node) {
-        if hashes.contains(&h) {
-            continue;
-        }
-        if s.table.look_up_hash(&h) == mate_pd {
-            leaf = false;
+    let mate_moves = generate_legal_moves(&mut s.pos, node)
+        .into_iter()
+        .filter(|(_, h)| !hashes.contains(h) && s.table.look_up_hash(h) == mate_pd)
+        .collect::<Vec<_>>();
+    if mate_moves.is_empty() {
+        solutions.push(calculate_result_and_score(&s.pos, moves));
+    } else {
+        for &(m, h) in &mate_moves {
             moves.push(m);
             hashes.insert(h);
             s.pos.make_move(m).expect("failed to make move");
-            search_all_mates(s, moves, hashes, answers);
+            search_all_mates(s, moves, hashes, solutions);
             s.pos.unmake_move().expect("failed to unmake move");
             moves.pop();
             hashes.remove(&h);
         }
     }
-    if leaf {
-        let mut moves = moves.clone();
-        // 最終2手が「合駒→同」の場合は、合駒無効の詰みなので削除
-        while moves.len() > 2 {
-            if let (
-                Move::Drop {
-                    to: drop_to,
-                    piece_type: _,
-                },
-                Move::Normal {
-                    from: _,
-                    to: move_to,
-                    promote: _,
-                },
-            ) = (moves[moves.len() - 2], moves[moves.len() - 1])
-            {
-                if drop_to == move_to {
-                    moves.pop();
-                    moves.pop();
-                    continue;
-                }
+}
+
+fn calculate_result_and_score<P>(pos: &P, moves: &[Move]) -> (Vec<Move>, usize)
+where
+    P: HashPosition,
+{
+    let mut moves = moves.to_vec();
+    let mut total_hands = PieceType::iter()
+        .filter_map(|piece_type| {
+            if piece_type.is_hand_piece() {
+                Some(pos.hand(Piece {
+                    piece_type,
+                    color: pos.side_to_move().flip(),
+                }))
+            } else {
+                None
             }
-            break;
+        })
+        .sum::<u8>();
+    // 最終2手が「合駒→同」の場合は、合駒無効の詰みなので削除
+    while moves.len() > 2 {
+        if let (
+            Move::Drop {
+                to: drop_to,
+                piece_type: _,
+            },
+            Move::Normal {
+                from: _,
+                to: move_to,
+                promote: _,
+            },
+        ) = (moves[moves.len() - 2], moves[moves.len() - 1])
+        {
+            if drop_to == move_to {
+                moves.pop();
+                moves.pop();
+                total_hands -= 1;
+                continue;
+            }
         }
-        // 1. 玉方が合駒として打った駒が後に取られて
-        // 2. 最終的に攻方の持駒に入っている
-        // を満たす場合、無駄合駒とみなし解答候補から外す
-        let mut drops = vec![None; 81];
-        for (i, &m) in moves.iter().enumerate() {
-            match i & 1 {
-                0 => {
-                    if let Move::Normal {
-                        from: _,
-                        to,
-                        promote: _,
-                    } = m
-                    {
-                        if let Some(piece_type) = drops[to.index()].take() {
-                            if s.pos.hand(Piece {
-                                piece_type,
-                                color: s.pos.side_to_move().flip(),
-                            }) > 0
-                            {
-                                return;
-                            }
+        break;
+    }
+    // 1. 玉方が合駒として打った駒が後に取られて
+    // 2. 最終的に攻方の持駒に入っている
+    // を満たす場合、無駄合駒とみなす
+    let mut drops = vec![None; 81];
+    for (i, &m) in moves.iter().enumerate() {
+        match i & 1 {
+            0 => {
+                if let Move::Normal {
+                    from: _,
+                    to,
+                    promote: _,
+                } = m
+                {
+                    if let Some(piece_type) = drops[to.index()].take() {
+                        if pos.hand(Piece {
+                            piece_type,
+                            color: pos.side_to_move().flip(),
+                        }) > 0
+                        {
+                            // TODO: 候補から除外したいが このパターンだけが候補になる場合もある
+                            return (moves, 0);
                         }
                     }
                 }
-                1 => {
-                    if let Move::Drop { to, piece_type } = m {
-                        drops[to.index()] = Some(piece_type);
-                    }
-                }
-                _ => {}
             }
+            1 => {
+                if let Move::Drop { to, piece_type } = m {
+                    drops[to.index()] = Some(piece_type);
+                }
+            }
+            _ => {}
         }
-        answers.push((
-            moves,
-            PieceType::iter()
-                .filter_map(|piece_type| {
-                    if piece_type.is_hand_piece() {
-                        Some(s.pos.hand(Piece {
-                            piece_type,
-                            color: s.pos.side_to_move().flip(),
-                        }))
-                    } else {
-                        None
-                    }
-                })
-                .sum::<u8>(),
-        ));
     }
+    let score = moves.len() * 100 - total_hands as usize;
+    (moves, score)
 }
 
 #[cfg(test)]
@@ -236,6 +248,36 @@ mod tests {
         let test_cases = vec![
             "ln1gkg1nl/6+P2/2sppps1p/2p3p2/p8/P1P1P3P/2NP1PP2/3s1KSR1/L1+b2G1NL w R2Pbgp 42", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:1
             "7+P1/5R1s1/6ks1/9/5L1p1/9/9/9/9 b R2b4g2s4n3l16p 1", // https://www.shogi.or.jp/tsume_shogi/everyday/20211183_1.html
+        ];
+        for &sfen in &test_cases {
+            let mut pos = Position::new();
+            pos.set_sfen(sfen).expect("failed to parse SFEN string");
+
+            let ret = solve(pos);
+            assert!(ret.len() % 2 == 1);
+            {
+                let mut pos = Position::new();
+                pos.set_sfen(sfen).expect("failed to parse SFEN string");
+                let color = pos.side_to_move().flip();
+                for (i, &m) in ret.iter().enumerate() {
+                    if i % 2 == 0 {
+                        assert!(!pos.in_check(color));
+                    } else {
+                        assert!(pos.in_check(color));
+                    }
+                    pos.make_move(m).expect("failed to make move");
+                }
+                assert!(is_mated(&mut pos));
+            }
+        }
+    }
+
+    #[test]
+    fn test_無駄合駒() {
+        Factory::init();
+
+        let test_cases = vec![
+            "7nl/5B1k1/6Ppp/5+R3/9/9/9/9/9 b Srb4g3s3n3l15p 1", // issues/5,
         ];
         for &sfen in &test_cases {
             let mut pos = Position::new();
