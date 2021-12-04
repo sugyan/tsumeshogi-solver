@@ -1,4 +1,4 @@
-use dfpn_solver::{generate_legal_moves, HashPosition, Node, Solver, Table, INF};
+use dfpn_solver::{generate_legal_moves, HashPosition, Node, Solver, Table, DFPN, INF};
 use shogi::{Move, Piece, PieceType, Position};
 use std::collections::HashSet;
 
