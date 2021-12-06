@@ -1,3 +1,5 @@
+// 「df-pnアルゴリズムの詰将棋を解くプログラムへの応用」
+// https://ci.nii.ac.jp/naid/110002726401
 use crate::impl_default_hash::DefaultHashPosition;
 use crate::impl_hashmap_table::HashMapTable;
 use crate::{generate_legal_moves, INF, U};
@@ -8,6 +10,15 @@ use std::{fmt::Debug, hash::Hash};
 pub enum Node {
     Or,
     And,
+}
+
+impl Node {
+    pub fn flip(self) -> Self {
+        match self {
+            Node::Or => Node::And,
+            Node::And => Node::Or,
+        }
+    }
 }
 
 pub trait HashPosition: Default {
@@ -29,9 +40,7 @@ pub trait HashPosition: Default {
 
 pub trait Table: Default {
     type T;
-    // ハッシュを引く (本当は優越関係が使える)
     fn look_up_hash(&self, key: &Self::T) -> (U, U);
-    // ハッシュに記録
     fn put_in_hash(&mut self, key: Self::T, value: (U, U));
 
     fn len(&self) -> usize;
@@ -39,16 +48,114 @@ pub trait Table: Default {
 }
 
 mod dfpn_solver {
-    use super::{HashPosition, Table, U};
-    use shogi::Position;
+    use super::{HashPosition, Node, Table, INF, U};
+    use shogi::{Move, MoveError, Position};
 
     pub trait Solve<P, T>
     where
         P: HashPosition,
         T: Table<T = P::T>,
     {
-        fn setup_position(&mut self, pos: Position) -> P::T;
-        fn mid(&mut self, hash: P::T, pd: &(U, U)) -> (U, U);
+        fn set_position(&mut self, pos: Position) -> P::T;
+        fn make_move(&mut self, m: Move) -> Result<(), MoveError>;
+        fn unmake_move(&mut self) -> Result<(), MoveError>;
+        fn generate_legal_moves(&mut self, node: Node) -> Vec<(Move, P::T)>;
+        // ノード n の展開
+        fn mid(&mut self, hash: P::T, phi: U, delta: U, node: Node) -> (U, U) {
+            // 1. ハッシュを引く
+            let (p, d) = self.look_up_hash(&hash);
+            if phi <= p || delta <= d {
+                return match node {
+                    Node::Or => (p, d),
+                    Node::And => (d, p),
+                };
+            }
+            // 2. 合法手の生成
+            let children = self.generate_legal_moves(node);
+            if children.is_empty() {
+                // ?
+                self.put_in_hash(hash, (INF, 0));
+                return match node {
+                    Node::Or => (INF, 0),
+                    Node::And => (0, INF),
+                };
+            }
+            // 3. ハッシュによるサイクル回避
+            self.put_in_hash(hash, (delta, phi));
+            // 4. 多重反復深化
+            loop {
+                // φ か δ がそのしきい値以上なら探索終了
+                let md = self.min_delta(&children);
+                let sp = self.sum_phi(&children);
+                if phi <= md || delta <= sp {
+                    self.put_in_hash(hash, (md, sp));
+                    return match node {
+                        Node::Or => (md, sp),
+                        Node::And => (sp, md),
+                    };
+                }
+                let (best, phi_c, delta_c, delta_2) = self.select_child(&children);
+                let phi_n_c = if phi_c == INF - 1 {
+                    INF
+                } else if delta >= INF - 1 {
+                    INF - 1
+                } else {
+                    delta + phi_c - sp
+                };
+                let delta_n_c = if delta_c == INF - 1 {
+                    INF
+                } else {
+                    phi.min(delta_2.saturating_add(1))
+                };
+                let (m, h) = best.expect("best move");
+                self.make_move(m).expect("failed to make move");
+                self.mid(h, phi_n_c, delta_n_c, node.flip());
+                self.unmake_move().expect("failed to unmake move");
+            }
+        }
+        // 子ノードの選択
+        fn select_child(&mut self, children: &[(Move, P::T)]) -> (Option<(Move, P::T)>, U, U, U) {
+            let (mut delta_c, mut delta_2) = (INF, INF);
+            let mut best = None;
+            let mut phi_c = None; // not optional?
+            for &(m, h) in children {
+                let (p, d) = self.look_up_hash(&h);
+                if d < delta_c {
+                    best = Some((m, h));
+                    delta_2 = delta_c;
+                    phi_c = Some(p);
+                    delta_c = d;
+                } else if d < delta_2 {
+                    delta_2 = d;
+                }
+                if p == INF {
+                    return (best, phi_c.expect("phi_c"), delta_c, delta_2);
+                }
+            }
+            (best, phi_c.expect("phi_c"), delta_c, delta_2)
+        }
+        // ハッシュを引く (本当は優越関係が使える)
+        fn look_up_hash(&self, key: &T::T) -> (U, U);
+        // ハッシュに記録
+        fn put_in_hash(&mut self, key: T::T, value: (U, U));
+        // n の子ノード の δ の最小を計算
+        fn min_delta(&mut self, children: &[(Move, P::T)]) -> U {
+            let mut min = INF;
+            for &(_, h) in children {
+                let (_, d) = self.look_up_hash(&h);
+                min = min.min(d);
+            }
+            min
+        }
+        // nの子ノードのφの和を計算
+        fn sum_phi(&mut self, children: &[(Move, P::T)]) -> U {
+            let mut sum: U = 0;
+            for &(_, h) in children {
+                let (p, _) = self.look_up_hash(&h);
+                sum = sum.saturating_add(p);
+            }
+            sum
+        }
     }
 }
 
@@ -57,14 +164,13 @@ where
     P: HashPosition,
     T: Table<T = P::T>,
 {
-    // 「df-pnアルゴリズムの詰将棋を解くプログラムへの応用」
-    // https://ci.nii.ac.jp/naid/110002726401
+    // ルートでの反復深化
     fn dfpn(&mut self, pos: Position) {
-        let hash = self.setup_position(pos);
+        let hash = self.set_position(pos);
         // ルートでの反復深化
-        let (pn, dn) = self.mid(hash, &(INF - 1, INF - 1));
+        let (pn, dn) = self.mid(hash, INF - 1, INF - 1, Node::Or);
         if pn != INF && dn != INF {
-            self.mid(hash, &(INF, INF));
+            self.mid(hash, INF, INF, Node::Or);
         }
     }
 }
@@ -73,7 +179,6 @@ where
 pub struct Solver<P = DefaultHashPosition, T = HashMapTable> {
     pub pos: P,
     pub table: T,
-    base_ply: u16,
 }
 
 impl<P, T> Solver<P, T>
@@ -82,69 +187,7 @@ where
     T: Table<T = P::T>,
 {
     pub fn new(pos: P, table: T) -> Self {
-        Self {
-            pos,
-            table,
-            base_ply: 0,
-        }
-    }
-    fn node(&self) -> Node {
-        if (self.pos.ply() ^ self.base_ply) & 1 == 0 {
-            Node::Or
-        } else {
-            Node::And
-        }
-    }
-    fn phi(&self, pd: &(U, U)) -> U {
-        match self.node() {
-            Node::Or => pd.0,
-            Node::And => pd.1,
-        }
-    }
-    fn delta(&self, pd: &(U, U)) -> U {
-        match self.node() {
-            Node::Or => pd.1,
-            Node::And => pd.0,
-        }
-    }
-    // 子ノードの選択
-    fn select_child(&mut self, children: &[(Move, P::T)]) -> (Option<(Move, P::T)>, U, U, U) {
-        let (mut delta_c, mut delta_2) = (INF, INF);
-        let mut best = None;
-        let mut phi_c = None; // not optional?
-        for &(m, h) in children {
-            let (p, d) = self.table.look_up_hash(&h);
-            if d < delta_c {
-                best = Some((m, h));
-                delta_2 = delta_c;
-                phi_c = Some(p);
-                delta_c = d;
-            } else if d < delta_2 {
-                delta_2 = d;
-            }
-            if p == INF {
-                return (best, phi_c.expect("phi_c"), delta_c, delta_2);
-            }
-        }
-        (best, phi_c.expect("phi_c"), delta_c, delta_2)
-    }
-    // n の子ノード の δ の最小を計算
-    fn min_delta(&mut self, children: &[(Move, P::T)]) -> U {
-        let mut min = INF;
-        for &(_, h) in children {
-            let (_, d) = self.table.look_up_hash(&h);
-            min = min.min(d);
-        }
-        min
-    }
-    // nの子ノードのφの和を計算
-    fn sum_phi(&mut self, children: &[(Move, P::T)]) -> U {
-        let mut sum: U = 0;
-        for &(_, h) in children {
-            let (p, _) = self.table.look_up_hash(&h);
-            sum = sum.saturating_add(p);
-        }
-        sum
+        Self { pos, table }
     }
 }
 
@@ -160,69 +203,24 @@ where
     P: HashPosition,
     T: Table<T = P::T>,
 {
-    fn setup_position(&mut self, pos: Position) -> P::T {
-        self.base_ply = pos.ply();
+    fn set_position(&mut self, pos: Position) -> P::T {
         self.pos.set_position(pos);
         self.pos.current_hash()
     }
-    fn mid(&mut self, hash: P::T, pd: &(U, U)) -> (U, U) {
-        // 1. ハッシュを引く
-        let (p, d) = self.table.look_up_hash(&hash);
-        if self.phi(pd) <= p || self.delta(pd) <= d {
-            return match self.node() {
-                Node::Or => (p, d),
-                Node::And => (d, p),
-            };
-        }
-        // 2. 合法手の生成
-        let node = self.node();
-        let children = generate_legal_moves(&mut self.pos, node);
-        if children.is_empty() {
-            // ?
-            self.table.put_in_hash(hash, (INF, 0));
-            return match self.node() {
-                Node::Or => (INF, 0),
-                Node::And => (0, INF),
-            };
-        }
-        // 3. ハッシュによるサイクル回避
-        match self.node() {
-            Node::Or => self.table.put_in_hash(hash, (pd.1, pd.0)),
-            Node::And => self.table.put_in_hash(hash, (pd.0, pd.1)),
-        };
-        // 4. 多重反復深化
-        loop {
-            // φ か δ がそのしきい値以上なら探索終了
-            let md = self.min_delta(&children);
-            let sp = self.sum_phi(&children);
-            if self.phi(pd) <= md || self.delta(pd) <= sp {
-                self.table.put_in_hash(hash, (md, sp));
-                return match self.node() {
-                    Node::Or => (md, sp),
-                    Node::And => (sp, md),
-                };
-            }
-            let (best, phi_c, delta_c, delta_2) = self.select_child(&children);
-            let phi_n_c = if phi_c == INF - 1 {
-                INF
-            } else if self.delta(pd) >= INF - 1 {
-                INF - 1
-            } else {
-                self.delta(pd) + phi_c - sp
-            };
-            let delta_n_c = if delta_c == INF - 1 {
-                INF
-            } else {
-                (self.phi(pd)).min(delta_2.saturating_add(1))
-            };
-            let (m, h) = best.expect("best move");
-            self.pos.make_move(m).expect("failed to make move");
-            match self.node() {
-                Node::Or => self.mid(h, &(phi_n_c, delta_n_c)),
-                Node::And => self.mid(h, &(delta_n_c, phi_n_c)),
-            };
-            self.pos.unmake_move().expect("failed to unmake move");
-        }
+    fn make_move(&mut self, m: Move) -> Result<(), MoveError> {
+        self.pos.make_move(m)
+    }
+    fn unmake_move(&mut self) -> Result<(), MoveError> {
+        self.pos.unmake_move()
+    }
+    fn look_up_hash(&self, key: &T::T) -> (U, U) {
+        self.table.look_up_hash(key)
+    }
+    fn put_in_hash(&mut self, key: T::T, value: (U, U)) {
+        self.table.put_in_hash(key, value);
+    }
+    fn generate_legal_moves(&mut self, node: Node) -> Vec<(Move, P::T)> {
+        generate_legal_moves(&mut self.pos, node)
     }
 }
 
