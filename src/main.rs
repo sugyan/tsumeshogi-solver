@@ -67,6 +67,12 @@ fn main() -> Result<(), std::io::Error> {
                 .help("Verbose mode"),
         )
         .arg(
+            Arg::with_name("normal")
+                .short("n")
+                .long("normal")
+                .help("Use normal solver"),
+        )
+        .arg(
             Arg::with_name("format")
                 .short("f")
                 .long("format")
@@ -83,25 +89,26 @@ fn main() -> Result<(), std::io::Error> {
         )
         .get_matches();
     let verbose = matches.is_present("v");
+    let normal = matches.is_present("normal");
     let inputs = matches.values_of("INPUT").unwrap().collect::<Vec<_>>();
 
     Factory::init();
     match matches.value_of("format").unwrap() {
-        "sfen" => run_sfen(&inputs, verbose),
-        "csa" => run_parse(CsaParser, &inputs, verbose),
-        "kif" => run_parse(KifParser, &inputs, verbose),
+        "sfen" => run_sfen(&inputs, normal, verbose),
+        "csa" => run_parse(CsaParser, &inputs, normal, verbose),
+        "kif" => run_parse(KifParser, &inputs, normal, verbose),
         _ => panic!("unknown format"),
     }
 }
 
-fn run_sfen(inputs: &[&str], verbose: bool) -> Result<(), std::io::Error> {
+fn run_sfen(inputs: &[&str], normal: bool, verbose: bool) -> Result<(), std::io::Error> {
     if inputs == ["-"] {
         let stdin = std::io::stdin();
         for line in stdin.lock().lines() {
             let sfen = line?;
             let mut pos = Position::new();
             match pos.set_sfen(&sfen) {
-                Ok(()) => run(pos, &sfen, verbose),
+                Ok(()) => run(pos, &sfen, normal, verbose),
                 Err(e) => {
                     eprintln!("failed to parse SFEN string: {}", e);
                     std::process::exit(1);
@@ -112,7 +119,7 @@ fn run_sfen(inputs: &[&str], verbose: bool) -> Result<(), std::io::Error> {
         for &input in inputs {
             let mut pos = Position::new();
             match pos.set_sfen(input) {
-                Ok(()) => run(pos, input.trim(), verbose),
+                Ok(()) => run(pos, input.trim(), normal, verbose),
                 Err(e) => {
                     eprintln!("failed to parse SFEN string: {}", e);
                     std::process::exit(1);
@@ -123,7 +130,12 @@ fn run_sfen(inputs: &[&str], verbose: bool) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn run_parse<T>(parser: T, inputs: &[&str], verbose: bool) -> Result<(), std::io::Error>
+fn run_parse<T>(
+    parser: T,
+    inputs: &[&str],
+    normal: bool,
+    verbose: bool,
+) -> Result<(), std::io::Error>
 where
     T: Parse,
 {
@@ -132,7 +144,7 @@ where
         let mut buf = Vec::new();
         stdin.lock().read_to_end(&mut buf)?;
         match parser.parse(&buf) {
-            Ok(pos) => run(pos, "-", verbose),
+            Ok(pos) => run(pos, "-", normal, verbose),
             Err(e) => {
                 eprintln!("failed to parse input: {}", e);
                 std::process::exit(1);
@@ -150,7 +162,7 @@ where
             };
             file.read_to_end(&mut buf)?;
             match parser.parse(&buf) {
-                Ok(pos) => run(pos, input, verbose),
+                Ok(pos) => run(pos, input, normal, verbose),
                 Err(e) => {
                     eprintln!("failed to parse input {}: {}", input, e);
                     std::process::exit(1);
@@ -161,7 +173,7 @@ where
     Ok(())
 }
 
-fn run(pos: Position, input: &str, verbose: bool) {
+fn run(pos: Position, input: &str, normal: bool, verbose: bool) {
     print!("{}: ", input);
     if verbose {
         println!();
@@ -170,6 +182,9 @@ fn run(pos: Position, input: &str, verbose: bool) {
     }
     println!(
         "{:?}",
-        solve(pos).iter().map(|m| m.to_string()).collect::<Vec<_>>()
+        solve(pos, normal)
+            .iter()
+            .map(|m| m.to_string())
+            .collect::<Vec<_>>()
     );
 }

@@ -1,14 +1,23 @@
-use dfpn_solver::{generate_legal_moves, HashPosition, Node, Solver, Table, DFPN, INF};
+use dfpn_solver::{
+    generate_legal_moves, ExtendedSolver, HashPosition, Node, NormalSolver, Table, DFPN, INF,
+};
 use shogi::{Move, Piece, PieceType, Position};
 use std::collections::HashSet;
 
-pub fn solve(pos: Position) -> Vec<Move> {
-    let mut solver: Solver = Solver::default();
-    solver.dfpn(pos);
-
+pub fn solve(pos: Position, normal: bool) -> Vec<Move> {
+    let (mut pos, table) = if normal {
+        let mut solver: NormalSolver = NormalSolver::default();
+        solver.dfpn(pos);
+        (solver.pos, solver.table)
+    } else {
+        let mut solver: ExtendedSolver = ExtendedSolver::default();
+        solver.dfpn(pos);
+        (solver.pos, solver.table)
+    };
     let mut solutions = Vec::new();
     search_all_mates(
-        &mut solver,
+        &mut pos,
+        &table,
         &mut Vec::new(),
         &mut HashSet::new(),
         &mut solutions,
@@ -21,7 +30,8 @@ pub fn solve(pos: Position) -> Vec<Move> {
 }
 
 fn search_all_mates<P, T>(
-    s: &mut Solver<P, T>,
+    pos: &mut P,
+    table: &T,
     moves: &mut Vec<Move>,
     hashes: &mut HashSet<P::T>,
     solutions: &mut Vec<(Vec<Move>, usize)>,
@@ -38,19 +48,19 @@ fn search_all_mates<P, T>(
         Node::Or => (INF, 0),
         Node::And => (0, INF),
     };
-    let mate_moves = generate_legal_moves(&mut s.pos, node)
+    let mate_moves = generate_legal_moves(pos, node)
         .into_iter()
-        .filter(|(_, h)| !hashes.contains(h) && s.table.look_up_hash(h) == mate_pd)
+        .filter(|(_, h)| !hashes.contains(h) && table.look_up_hash(h) == mate_pd)
         .collect::<Vec<_>>();
     if mate_moves.is_empty() {
-        solutions.push(calculate_result_and_score(&s.pos, moves));
+        solutions.push(calculate_result_and_score(pos, moves));
     } else {
         for &(m, h) in &mate_moves {
             moves.push(m);
             hashes.insert(h);
-            s.pos.make_move(m).expect("failed to make move");
-            search_all_mates(s, moves, hashes, solutions);
-            s.pos.unmake_move().expect("failed to unmake move");
+            pos.make_move(m).expect("failed to make move");
+            search_all_mates(pos, table, moves, hashes, solutions);
+            pos.unmake_move().expect("failed to unmake move");
             moves.pop();
             hashes.remove(&h);
         }
@@ -208,14 +218,14 @@ mod tests {
             "l2R2snl/4gkg2/p+P1ppp2p/2p3pp1/9/1nPPP4/P1G1GPP1P/3K1Ss2/+r3Bb1NL w N2Psl 68",
             "l6nl/3k2+B2/p1n1g2pp/2G1ppp2/2P2N1P1/3P2P1P/Ps1GP4/1+rSK2R2/LN6L b G3Pb2s2p 77",
             "+N5snl/4+N1gp1/1b1p1pkP1/1s1l2pLp/4p+b3/P1P6/1P1PPPP1P/2+rSK2L1/2+r1S1GN1 w 2P2gp 84",
-            // TODO: "ln3kgRl/2s1g2p1/2ppppn1p/p5p2/6b2/P3P4/1+rPP1PP1P/1P4S2/LNSK1G1NL w GPbsp 50",
+            "ln3kgRl/2s1g2p1/2ppppn1p/p5p2/6b2/P3P4/1+rPP1PP1P/1P4S2/LNSK1G1NL w GPbsp 50",
             "3g4l/+R1sg2S2/p1npk1s+Rp/2pb2p2/4g2N1/1p7/P1PP1PP1P/1P1S5/LNK2G1+lL b N3Pb2p 71",
         ];
         for &sfen in &test_cases {
             let mut pos = Position::new();
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
 
-            let ret = solve(pos);
+            let ret = solve(pos, false);
             assert!(ret.len() % 2 == 1);
             {
                 let mut pos = Position::new();
@@ -246,7 +256,7 @@ mod tests {
             let mut pos = Position::new();
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
 
-            let ret = solve(pos);
+            let ret = solve(pos, false);
             assert!(ret.len() % 2 == 1);
             {
                 let mut pos = Position::new();
@@ -276,7 +286,7 @@ mod tests {
             let mut pos = Position::new();
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
 
-            let ret = solve(pos);
+            let ret = solve(pos, false);
             assert!(ret.len() % 2 == 1);
             {
                 let mut pos = Position::new();
