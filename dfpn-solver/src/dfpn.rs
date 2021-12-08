@@ -38,8 +38,12 @@ pub mod dfpn_solver {
             // 4. 多重反復深化
             loop {
                 // φ か δ がそのしきい値以上なら探索終了
-                let md = self.min_delta(&children);
                 let sp = self.sum_phi(&children);
+                let md = if sp >= INF - 1 {
+                    0
+                } else {
+                    self.min_delta(&children)
+                };
                 if phi <= md || delta <= sp {
                     self.put_in_hash(hash, (md, sp));
                     return match node {

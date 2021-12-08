@@ -250,27 +250,30 @@ mod tests {
 
         let test_cases = vec![
             "ln1gkg1nl/6+P2/2sppps1p/2p3p2/p8/P1P1P3P/2NP1PP2/3s1KSR1/L1+b2G1NL w R2Pbgp 42", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:1
+            "3Bp2n1/5+R2+B/p2p1GSp1/8p/Pn5l1/1n2SNP2/2pPPS1Pk/1P1SK1G2/L1G1G4 b RL3Pl3p 131", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate7.sfen:71
             "7+P1/5R1s1/6ks1/9/5L1p1/9/9/9/9 b R2b4g2s4n3l16p 1", // https://www.shogi.or.jp/tsume_shogi/everyday/20211183_1.html
         ];
         for &sfen in &test_cases {
-            let mut pos = Position::new();
-            pos.set_sfen(sfen).expect("failed to parse SFEN string");
-
-            let ret = solve(pos, false);
-            assert!(ret.len() % 2 == 1);
-            {
+            for &normal in &[false, true] {
                 let mut pos = Position::new();
                 pos.set_sfen(sfen).expect("failed to parse SFEN string");
-                let color = pos.side_to_move().flip();
-                for (i, &m) in ret.iter().enumerate() {
-                    if i % 2 == 0 {
-                        assert!(!pos.in_check(color));
-                    } else {
-                        assert!(pos.in_check(color));
+
+                let ret = solve(pos, normal);
+                assert!(ret.len() % 2 == 1);
+                {
+                    let mut pos = Position::new();
+                    pos.set_sfen(sfen).expect("failed to parse SFEN string");
+                    let color = pos.side_to_move().flip();
+                    for (i, &m) in ret.iter().enumerate() {
+                        if i % 2 == 0 {
+                            assert!(!pos.in_check(color));
+                        } else {
+                            assert!(pos.in_check(color));
+                        }
+                        pos.make_move(m).expect("failed to make move");
                     }
-                    pos.make_move(m).expect("failed to make move");
+                    assert!(is_mated(&mut pos));
                 }
-                assert!(is_mated(&mut pos));
             }
         }
     }
