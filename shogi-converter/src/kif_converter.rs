@@ -68,9 +68,9 @@ fn piece(input: &str) -> IResult<&str, PieceType> {
         value(PieceType::Rook, tag("飛")),
         value(PieceType::King, tag("玉")),
         value(PieceType::ProPawn, tag("と")),
-        value(PieceType::ProLance, tag("杏")),
-        value(PieceType::ProKnight, tag("圭")),
-        value(PieceType::ProSilver, tag("全")),
+        value(PieceType::ProLance, alt((tag("杏"), tag("成香")))),
+        value(PieceType::ProKnight, alt((tag("圭"), tag("成桂")))),
+        value(PieceType::ProSilver, alt((tag("全"), tag("成銀")))),
         value(PieceType::Horse, tag("馬")),
         value(PieceType::Dragon, is_a("龍竜")),
     ))(input)
@@ -190,8 +190,21 @@ fn move_to(input: &str) -> IResult<&str, Square> {
 fn move_action_move(input: &str) -> IResult<&str, Action> {
     let (input, to) = move_to(input)?;
     let (input, piece_type) = piece(input)?;
+    let (input, promote) = map(opt(tag("成")), |o| o.is_some())(input)?;
     let (input, from) = move_from(input)?;
-    Ok((input, Action::Move(Color::Black, from, to, piece_type)))
+    Ok((
+        input,
+        Action::Move(
+            Color::Black,
+            from,
+            to,
+            if promote {
+                piece_type.promote().expect("promote")
+            } else {
+                piece_type
+            },
+        ),
+    ))
 }
 
 fn move_action(input: &str) -> IResult<&str, Action> {
@@ -236,7 +249,10 @@ fn move_line(input: &str) -> IResult<&str, Move> {
 fn move_(input: &str) -> IResult<&str, Move> {
     let (input, (mut m, comments)) = pair(
         terminated(preceded(space0, move_line), line_ending),
-        many0(terminated(preceded(tag("*"), not_line_ending), line_ending)),
+        many0(alt((
+            terminated(preceded(tag("*"), not_line_ending), line_ending),
+            terminated(preceded(tag("&"), not_line_ending), line_ending), // TODO: しおり
+        ))),
     )(input)?;
     m.comments = comments.iter().map(|s| s.to_string()).collect();
     Ok((input, m))

@@ -102,6 +102,20 @@ impl PieceType {
         PieceTypeIter::new()
     }
 
+    fn promote(self) -> Option<Self> {
+        use self::PieceType::*;
+
+        Some(match self {
+            Pawn => ProPawn,
+            Lance => ProLance,
+            Knight => ProKnight,
+            Silver => ProSilver,
+            Bishop => Horse,
+            Rook => Dragon,
+            _ => return None,
+        })
+    }
+
     fn unpromoted(self) -> Self {
         use self::PieceType::*;
         match self {
