@@ -49,13 +49,14 @@ Ply: 1
 ### Run
 
 ```
-Tsumeshogi Solver 0.1
+Tsumeshogi Solver 0.2
 
 USAGE:
     tsumeshogi-solver [FLAGS] [OPTIONS] <INPUT>...
 
 FLAGS:
     -h, --help       Prints help information
+    -n, --normal     Use normal solver
     -v, --verbose    Verbose mode
     -V, --version    Prints version information
 

@@ -59,7 +59,7 @@ impl Parse for KifParser {
 
 fn main() -> Result<(), std::io::Error> {
     let matches = App::new("Tsumeshogi Solver")
-        .version("0.1")
+        .version("0.2")
         .arg(
             Arg::with_name("v")
                 .short("v")
