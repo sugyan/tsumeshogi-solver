@@ -158,7 +158,7 @@ mod tests {
         pos.set_sfen(sfen).expect("failed to parse SFEN string");
         let color = pos.side_to_move().flip();
         for (i, &m) in moves.iter().enumerate() {
-            if pos.in_check(color) != (i % 2 == 0) {
+            if pos.in_check(color) == (i % 2 == 0) {
                 return false;
             }
             pos.make_move(m).expect("failed to make move");
@@ -237,11 +237,11 @@ mod tests {
             "ln3kgRl/2s1g2p1/2ppppn1p/p5p2/6b2/P3P4/1+rPP1PP1P/1P4S2/LNSK1G1NL w GPbsp 50",
             "3g4l/+R1sg2S2/p1npk1s+Rp/2pb2p2/4g2N1/1p7/P1PP1PP1P/1P1S5/LNK2G1+lL b N3Pb2p 71",
         ];
-        for &sfen in &test_cases {
+        for (i, &sfen) in test_cases.iter().enumerate() {
             let mut pos = Position::new();
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
             let ret = solve(pos, false);
-            is_valid_moves(sfen, &ret);
+            assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
         }
     }
 
@@ -254,12 +254,12 @@ mod tests {
             "3Bp2n1/5+R2+B/p2p1GSp1/8p/Pn5l1/1n2SNP2/2pPPS1Pk/1P1SK1G2/L1G1G4 b RL3Pl3p 131", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate7.sfen:71
             "7+P1/5R1s1/6ks1/9/5L1p1/9/9/9/9 b R2b4g2s4n3l16p 1", // https://www.shogi.or.jp/tsume_shogi/everyday/20211183_1.html
         ];
-        for &sfen in &test_cases {
+        for (i, &sfen) in test_cases.iter().enumerate() {
             for &normal in &[false, true] {
                 let mut pos = Position::new();
                 pos.set_sfen(sfen).expect("failed to parse SFEN string");
                 let ret = solve(pos, normal);
-                is_valid_moves(sfen, &ret);
+                assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
             }
         }
     }
@@ -271,12 +271,12 @@ mod tests {
         let test_cases = vec![
             "ln1g3k1/5G2l/1+LspSp2p/2p1S2p1/2r3p2/p3P4/1P+BP1P+b1P/2GS5/L2K1G3 b NPr2n5p 79", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:569
         ];
-        for &sfen in &test_cases {
+        for (i, &sfen) in test_cases.iter().enumerate() {
             for &normal in &[false, true] {
                 let mut pos = Position::new();
                 pos.set_sfen(sfen).expect("failed to parse SFEN string");
                 let ret = solve(pos, normal);
-                is_valid_moves(sfen, &ret);
+                assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
             }
         }
     }
@@ -288,11 +288,11 @@ mod tests {
         let test_cases = vec![
             "7nl/5B1k1/6Ppp/5+R3/9/9/9/9/9 b Srb4g3s3n3l15p 1", // issues/5,
         ];
-        for &sfen in &test_cases {
+        for (i, &sfen) in test_cases.iter().enumerate() {
             let mut pos = Position::new();
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
             let ret = solve(pos, false);
-            is_valid_moves(sfen, &ret);
+            assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
         }
     }
 }
