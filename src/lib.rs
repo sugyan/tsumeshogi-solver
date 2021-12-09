@@ -150,6 +150,22 @@ mod tests {
     use shogi::bitboard::Factory;
     use shogi::{Move, Piece, PieceType, Position, Square};
 
+    fn is_valid_moves(sfen: &str, moves: &[Move]) -> bool {
+        if moves.len() % 2 == 0 {
+            return false;
+        }
+        let mut pos = Position::new();
+        pos.set_sfen(sfen).expect("failed to parse SFEN string");
+        let color = pos.side_to_move().flip();
+        for (i, &m) in moves.iter().enumerate() {
+            if pos.in_check(color) != (i % 2 == 0) {
+                return false;
+            }
+            pos.make_move(m).expect("failed to make move");
+        }
+        is_mated(&mut pos)
+    }
+
     fn is_mated(pos: &mut Position) -> bool {
         let color = pos.side_to_move();
         if !pos.in_check(color) {
@@ -224,23 +240,8 @@ mod tests {
         for &sfen in &test_cases {
             let mut pos = Position::new();
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
-
             let ret = solve(pos, false);
-            assert!(ret.len() % 2 == 1);
-            {
-                let mut pos = Position::new();
-                pos.set_sfen(sfen).expect("failed to parse SFEN string");
-                let color = pos.side_to_move().flip();
-                for (i, &m) in ret.iter().enumerate() {
-                    if i % 2 == 0 {
-                        assert!(!pos.in_check(color));
-                    } else {
-                        assert!(pos.in_check(color));
-                    }
-                    pos.make_move(m).expect("failed to make move");
-                }
-                assert!(is_mated(&mut pos));
-            }
+            is_valid_moves(sfen, &ret);
         }
     }
 
@@ -257,23 +258,25 @@ mod tests {
             for &normal in &[false, true] {
                 let mut pos = Position::new();
                 pos.set_sfen(sfen).expect("failed to parse SFEN string");
-
                 let ret = solve(pos, normal);
-                assert!(ret.len() % 2 == 1);
-                {
-                    let mut pos = Position::new();
-                    pos.set_sfen(sfen).expect("failed to parse SFEN string");
-                    let color = pos.side_to_move().flip();
-                    for (i, &m) in ret.iter().enumerate() {
-                        if i % 2 == 0 {
-                            assert!(!pos.in_check(color));
-                        } else {
-                            assert!(pos.in_check(color));
-                        }
-                        pos.make_move(m).expect("failed to make move");
-                    }
-                    assert!(is_mated(&mut pos));
-                }
+                is_valid_moves(sfen, &ret);
+            }
+        }
+    }
+
+    #[test]
+    fn test_other_problems() {
+        Factory::init();
+
+        let test_cases = vec![
+            "ln1g3k1/5G2l/1+LspSp2p/2p1S2p1/2r3p2/p3P4/1P+BP1P+b1P/2GS5/L2K1G3 b NPr2n5p 79", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:569
+        ];
+        for &sfen in &test_cases {
+            for &normal in &[false, true] {
+                let mut pos = Position::new();
+                pos.set_sfen(sfen).expect("failed to parse SFEN string");
+                let ret = solve(pos, normal);
+                is_valid_moves(sfen, &ret);
             }
         }
     }
@@ -288,23 +291,8 @@ mod tests {
         for &sfen in &test_cases {
             let mut pos = Position::new();
             pos.set_sfen(sfen).expect("failed to parse SFEN string");
-
             let ret = solve(pos, false);
-            assert!(ret.len() % 2 == 1);
-            {
-                let mut pos = Position::new();
-                pos.set_sfen(sfen).expect("failed to parse SFEN string");
-                let color = pos.side_to_move().flip();
-                for (i, &m) in ret.iter().enumerate() {
-                    if i % 2 == 0 {
-                        assert!(!pos.in_check(color));
-                    } else {
-                        assert!(pos.in_check(color));
-                    }
-                    pos.make_move(m).expect("failed to make move");
-                }
-                assert!(is_mated(&mut pos));
-            }
+            is_valid_moves(sfen, &ret);
         }
     }
 }
