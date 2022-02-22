@@ -5,12 +5,12 @@ use crate::{generate_legal_moves, HashPosition, Node, Table, DFPN, U};
 use shogi::{Move, MoveError, Position};
 
 #[derive(Default)]
-pub struct NormalSolver<P = DefaultHashPosition, T = HashMapTable> {
+pub struct Solver<P = DefaultHashPosition, T = HashMapTable> {
     pub pos: P,
     pub table: T,
 }
 
-impl<P, T> NormalSolver<P, T>
+impl<P, T> Solver<P, T>
 where
     P: HashPosition,
     T: Table<T = P::T>,
@@ -20,14 +20,14 @@ where
     }
 }
 
-impl<P, T> DFPN<P, T> for NormalSolver<P, T>
+impl<P, T> DFPN<P, T> for Solver<P, T>
 where
     P: HashPosition,
     T: Table<T = P::T>,
 {
 }
 
-impl<P, T> dfpn_solver::Solve<P, T> for NormalSolver<P, T>
+impl<P, T> dfpn_solver::Solve<P, T> for Solver<P, T>
 where
     P: HashPosition,
     T: Table<T = P::T>,
@@ -79,7 +79,7 @@ mod tests {
     fn test_impl_default_hashmap() {
         Factory::init();
 
-        let mut solver = NormalSolver::new(DefaultHashPosition::default(), HashMapTable::default());
+        let mut solver = Solver::new(DefaultHashPosition::default(), HashMapTable::default());
         assert!(solver.table.is_empty());
         solver.dfpn(example_position());
         assert_eq!(171, solver.table.len());
@@ -93,7 +93,7 @@ mod tests {
     fn test_impl_zobrist_hashmap() {
         Factory::init();
 
-        let mut solver = NormalSolver::new(
+        let mut solver = Solver::new(
             ZobristHashPosition::default(),
             HashMapTable::<u64>::default(),
         );
@@ -110,7 +110,7 @@ mod tests {
     fn test_impl_zobrist_vec() {
         Factory::init();
 
-        let mut solver = NormalSolver::new(ZobristHashPosition::default(), VecTable::new(16));
+        let mut solver = Solver::new(ZobristHashPosition::default(), VecTable::new(16));
         assert!(solver.table.is_empty());
         solver.dfpn(example_position());
         assert_eq!(171, solver.table.len());
@@ -124,7 +124,7 @@ mod tests {
     fn test_reverse() {
         Factory::init();
 
-        let mut solver: NormalSolver = NormalSolver::default();
+        let mut solver = Solver::<DefaultHashPosition, HashMapTable>::default();
         assert!(solver.table.is_empty());
         solver.dfpn(example_position_reverse());
         assert!(!solver.table.is_empty());
