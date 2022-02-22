@@ -1,4 +1,4 @@
-use clap::{App, Arg};
+use clap::{ArgEnum, Parser};
 use csa::{parse_csa, CsaError};
 use shogi::{bitboard::Factory, Position, SfenError};
 use shogi_converter::kif_converter::{parse_kif, KifError};
@@ -57,44 +57,40 @@ impl Parse for KifParser {
     }
 }
 
+#[derive(Parser)]
+#[clap(name = "Tsumeshogi Solver")]
+#[clap(version)]
+struct Args {
+    /// Verbose mode
+    #[clap(short, long)]
+    verbose: bool,
+    /// Input format
+    #[clap(short, long, arg_enum, value_name = "FORMAT", default_value_t = Format::Sfen)]
+    format: Format,
+    /// Input files or strings
+    #[clap(required(true))]
+    inputs: Vec<String>,
+}
+
+#[derive(Clone, ArgEnum)]
+enum Format {
+    Sfen,
+    Csa,
+    Kif,
+}
+
 fn main() -> Result<(), std::io::Error> {
-    let matches = App::new("Tsumeshogi Solver")
-        .version("0.2")
-        .arg(
-            Arg::with_name("v")
-                .short("v")
-                .long("verbose")
-                .help("Verbose mode"),
-        )
-        .arg(
-            Arg::with_name("format")
-                .short("f")
-                .long("format")
-                .help("input format")
-                .takes_value(true)
-                .possible_values(&["sfen", "csa", "kif"])
-                .default_value("sfen"),
-        )
-        .arg(
-            Arg::with_name("INPUT")
-                .help("Input files or strings")
-                .required(true)
-                .multiple(true),
-        )
-        .get_matches();
-    let verbose = matches.is_present("v");
-    let inputs = matches.values_of("INPUT").unwrap().collect::<Vec<_>>();
+    let args = Args::parse();
 
     Factory::init();
-    match matches.value_of("format").unwrap() {
-        "sfen" => run_sfen(&inputs, verbose),
-        "csa" => run_parse(CsaParser, &inputs, verbose),
-        "kif" => run_parse(KifParser, &inputs, verbose),
-        _ => panic!("unknown format"),
+    match args.format {
+        Format::Sfen => run_sfen(&args.inputs, args.verbose),
+        Format::Csa => run_parse(CsaParser, &args.inputs, args.verbose),
+        Format::Kif => run_parse(KifParser, &args.inputs, args.verbose),
     }
 }
 
-fn run_sfen(inputs: &[&str], verbose: bool) -> Result<(), std::io::Error> {
+fn run_sfen(inputs: &[String], verbose: bool) -> Result<(), std::io::Error> {
     if inputs == ["-"] {
         let stdin = std::io::stdin();
         for line in stdin.lock().lines() {
@@ -109,7 +105,7 @@ fn run_sfen(inputs: &[&str], verbose: bool) -> Result<(), std::io::Error> {
             }
         }
     } else {
-        for &input in inputs {
+        for input in inputs {
             let mut pos = Position::new();
             match pos.set_sfen(input) {
                 Ok(()) => run(pos, input.trim(), verbose),
@@ -123,7 +119,7 @@ fn run_sfen(inputs: &[&str], verbose: bool) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn run_parse<T>(parser: T, inputs: &[&str], verbose: bool) -> Result<(), std::io::Error>
+fn run_parse<T>(parser: T, inputs: &[String], verbose: bool) -> Result<(), std::io::Error>
 where
     T: Parse,
 {
@@ -139,7 +135,7 @@ where
             }
         }
     } else {
-        for &input in inputs {
+        for input in inputs {
             let mut buf = Vec::new();
             let mut file = match File::open(input) {
                 Ok(file) => file,

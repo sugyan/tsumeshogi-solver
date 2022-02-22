@@ -1,6 +1,6 @@
 [package]
 name = "tsumeshogi-solver"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -9,6 +9,6 @@ edition = "2021"
 dfpn-solver = { path = "./dfpn-solver" }
 shogi-converter = { path = "./shogi-converter" }
 csa = "0.6"
-clap = "2.33.3"
+clap = { version = "3.1.1", features = ["derive"] }
 shogi = "0.12.1"
 thiserror = "1.0.30"
