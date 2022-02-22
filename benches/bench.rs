@@ -4,7 +4,7 @@ use dfpn_solver::impl_default_hash::DefaultHashPosition;
 use dfpn_solver::impl_hashmap_table::HashMapTable;
 use dfpn_solver::impl_vec_table::VecTable;
 use dfpn_solver::impl_zobrist_hash::ZobristHashPosition;
-use dfpn_solver::{ExtendedSolver, NormalSolver, DFPN};
+use dfpn_solver::{Solver, DFPN};
 use shogi::bitboard::Factory;
 use shogi::Position;
 
@@ -39,27 +39,27 @@ fn test_cases() -> Vec<String> {
 }
 
 #[bench]
-fn bench_normal_default_hashmap(b: &mut test::Bencher) {
+fn bench_default_hashmap(b: &mut test::Bencher) {
     Factory::init();
 
     b.iter(|| {
         for sfen in test_cases() {
             let mut pos = Position::new();
             pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            NormalSolver::new(DefaultHashPosition::default(), HashMapTable::default()).dfpn(pos);
+            Solver::new(DefaultHashPosition::default(), HashMapTable::default()).dfpn(pos);
         }
     });
 }
 
 #[bench]
-fn bench_normal_zobrist_hashmap(b: &mut test::Bencher) {
+fn bench_zobrist_hashmap(b: &mut test::Bencher) {
     Factory::init();
 
     b.iter(|| {
         for sfen in test_cases() {
             let mut pos = Position::new();
             pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            NormalSolver::new(
+            Solver::new(
                 ZobristHashPosition::default(),
                 HashMapTable::<u64>::default(),
             )
@@ -69,57 +69,14 @@ fn bench_normal_zobrist_hashmap(b: &mut test::Bencher) {
 }
 
 #[bench]
-fn bench_normal_zobrist_vec(b: &mut test::Bencher) {
+fn bench_zobrist_vec(b: &mut test::Bencher) {
     Factory::init();
 
     b.iter(|| {
         for sfen in test_cases() {
             let mut pos = Position::new();
             pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            NormalSolver::new(ZobristHashPosition::default(), VecTable::new(16)).dfpn(pos);
-        }
-    });
-}
-
-#[bench]
-fn bench_extended_default_hashmap(b: &mut test::Bencher) {
-    Factory::init();
-
-    b.iter(|| {
-        for sfen in test_cases() {
-            let mut pos = Position::new();
-            pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            ExtendedSolver::new(DefaultHashPosition::default(), HashMapTable::default()).dfpn(pos);
-        }
-    });
-}
-
-#[bench]
-fn bench_extended_zobrist_hashmap(b: &mut test::Bencher) {
-    Factory::init();
-
-    b.iter(|| {
-        for sfen in test_cases() {
-            let mut pos = Position::new();
-            pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            ExtendedSolver::new(
-                ZobristHashPosition::default(),
-                HashMapTable::<u64>::default(),
-            )
-            .dfpn(pos);
-        }
-    });
-}
-
-#[bench]
-fn bench_extended_zobrist_vec(b: &mut test::Bencher) {
-    Factory::init();
-
-    b.iter(|| {
-        for sfen in test_cases() {
-            let mut pos = Position::new();
-            pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            ExtendedSolver::new(ZobristHashPosition::default(), VecTable::new(16)).dfpn(pos);
+            Solver::new(ZobristHashPosition::default(), VecTable::new(16)).dfpn(pos);
         }
     });
 }
