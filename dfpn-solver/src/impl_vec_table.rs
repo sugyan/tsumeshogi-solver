@@ -23,15 +23,14 @@ impl Default for VecTable {
 }
 
 impl Table for VecTable {
-    type T = usize;
-    fn look_up_hash(&self, key: &Self::T) -> (U, U) {
-        self.table[*key & self.mask].unwrap_or((1, 1))
+    fn look_up_hash(&self, key: &u64) -> (U, U) {
+        self.table[(*key as usize) & self.mask].unwrap_or((1, 1))
     }
-    fn put_in_hash(&mut self, key: Self::T, value: (U, U)) {
-        if self.table[key & self.mask].is_none() {
+    fn put_in_hash(&mut self, key: u64, value: (U, U)) {
+        if self.table[(key as usize) & self.mask].is_none() {
             self.len += 1;
         }
-        self.table[key & self.mask] = Some(value);
+        self.table[(key as usize) & self.mask] = Some(value);
     }
     fn len(&self) -> usize {
         self.len

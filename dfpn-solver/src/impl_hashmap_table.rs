@@ -1,13 +1,12 @@
 use crate::{Table, U};
 use std::collections::HashMap;
-use std::hash::Hash;
 
 #[derive(Default)]
-pub struct HashMapTable<T = u64> {
-    table: HashMap<T, (U, U)>,
+pub struct HashMapTable {
+    table: HashMap<u64, (U, U)>,
 }
 
-impl<T> HashMapTable<T> {
+impl HashMapTable {
     pub fn new() -> Self {
         Self {
             table: HashMap::new(),
@@ -15,19 +14,15 @@ impl<T> HashMapTable<T> {
     }
 }
 
-impl<V> Table for HashMapTable<V>
-where
-    V: Default + Eq + Hash,
-{
-    type T = V;
-    fn look_up_hash(&self, key: &Self::T) -> (U, U) {
+impl Table for HashMapTable {
+    fn look_up_hash(&self, key: &u64) -> (U, U) {
         if let Some(&v) = self.table.get(key) {
             v
         } else {
             (1, 1)
         }
     }
-    fn put_in_hash(&mut self, key: Self::T, value: (U, U)) {
+    fn put_in_hash(&mut self, key: u64, value: (U, U)) {
         self.table.insert(key, value);
     }
     fn len(&self) -> usize {

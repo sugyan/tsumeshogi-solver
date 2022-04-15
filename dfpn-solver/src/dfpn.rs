@@ -1,20 +1,19 @@
 // 「df-pnアルゴリズムの詰将棋を解くプログラムへの応用」
 // https://ci.nii.ac.jp/naid/110002726401
 pub mod dfpn_solver {
-    use crate::{HashPosition, Node, Table, INF, U};
-    use shogi::{Move, MoveError, Position};
+    use crate::{Node, Table, INF, U};
+    use yasai::{Move, Position};
 
-    pub trait Solve<P, T>
+    pub trait Solve<T>
     where
-        P: HashPosition,
-        T: Table<T = P::T>,
+        T: Table,
     {
-        fn set_position(&mut self, pos: Position) -> P::T;
-        fn make_move(&mut self, m: Move) -> Result<(), MoveError>;
-        fn unmake_move(&mut self) -> Result<(), MoveError>;
-        fn generate_legal_moves(&mut self, node: Node) -> Vec<(Move, P::T)>;
+        fn set_position(&mut self, pos: Position) -> u64;
+        fn do_move(&mut self, m: Move);
+        fn undo_move(&mut self, m: Move);
+        fn generate_legal_moves(&mut self, node: Node) -> Vec<(Move, u64)>;
         // ノード n の展開
-        fn mid(&mut self, hash: P::T, phi: U, delta: U, node: Node) -> (U, U) {
+        fn mid(&mut self, hash: u64, phi: U, delta: U, node: Node) -> (U, U) {
             // 1. ハッシュを引く
             let (p, d) = self.look_up_hash(&hash);
             if phi <= p || delta <= d {
@@ -65,13 +64,13 @@ pub mod dfpn_solver {
                     phi.min(delta_2.saturating_add(1))
                 };
                 let (m, h) = best.expect("best move");
-                self.make_move(m).expect("failed to make move");
-                self.mid(h, phi_n_c, delta_n_c, node.flip());
-                self.unmake_move().expect("failed to unmake move");
+                self.do_move(m);
+                self.mid(h, phi_n_c, delta_n_c, !node);
+                self.undo_move(m);
             }
         }
         // 子ノードの選択
-        fn select_child(&mut self, children: &[(Move, P::T)]) -> (Option<(Move, P::T)>, U, U, U) {
+        fn select_child(&mut self, children: &[(Move, u64)]) -> (Option<(Move, u64)>, U, U, U) {
             let (mut delta_c, mut delta_2) = (INF, INF);
             let mut best = None;
             let mut phi_c = None; // not optional?
@@ -92,11 +91,11 @@ pub mod dfpn_solver {
             (best, phi_c.expect("phi_c"), delta_c, delta_2)
         }
         // ハッシュを引く (本当は優越関係が使える)
-        fn look_up_hash(&self, key: &T::T) -> (U, U);
+        fn look_up_hash(&self, key: &u64) -> (U, U);
         // ハッシュに記録
-        fn put_in_hash(&mut self, key: T::T, value: (U, U));
+        fn put_in_hash(&mut self, key: u64, value: (U, U));
         // n の子ノード の δ の最小を計算
-        fn min_delta(&mut self, children: &[(Move, P::T)]) -> U {
+        fn min_delta(&mut self, children: &[(Move, u64)]) -> U {
             let mut min = INF;
             for &(_, h) in children {
                 let (_, d) = self.look_up_hash(&h);
@@ -105,7 +104,7 @@ pub mod dfpn_solver {
             min
         }
         // nの子ノードのφの和を計算
-        fn sum_phi(&mut self, children: &[(Move, P::T)]) -> U {
+        fn sum_phi(&mut self, children: &[(Move, u64)]) -> U {
             let mut sum: U = 0;
             for &(_, h) in children {
                 let (p, _) = self.look_up_hash(&h);

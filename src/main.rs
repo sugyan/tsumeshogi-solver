@@ -6,7 +6,7 @@ use shogi_converter::Record;
 use std::io::BufRead;
 use std::{fs::File, io::Read, str};
 use thiserror::Error;
-use tsumeshogi_solver::solve;
+use tsumeshogi_solver::{pos2pos, solve};
 
 #[derive(Error, Debug)]
 enum ParseError {
@@ -164,6 +164,7 @@ fn run(pos: Position, input: &str, verbose: bool) {
         println!("{}", pos);
         println!();
     }
+    let pos = pos2pos(&pos);
     println!(
         "{:?}",
         solve(pos).iter().map(|m| m.to_string()).collect::<Vec<_>>()

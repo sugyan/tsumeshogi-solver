@@ -1,6 +1,61 @@
-use dfpn_solver::{generate_legal_moves, HashPosition, Node, Solver, Table, DFPN, INF};
-use shogi::{Move, Piece, PieceType, Position};
+use dfpn_solver::{generate_legal_moves, Node, Solver, Table, DFPN, INF};
 use std::collections::HashSet;
+use yasai::{Move, MoveType, PieceType, Position};
+
+pub fn pos2pos(pos: &shogi::Position) -> yasai::Position {
+    let board = yasai::Square::ALL.map(|sq| {
+        pos.piece_at(shogi::Square::from_index(sq.index() as u8).unwrap())
+            .map(|p| {
+                let color = match p.color {
+                    shogi::Color::Black => yasai::Color::Black,
+                    shogi::Color::White => yasai::Color::White,
+                };
+                let piece_type = match p.piece_type {
+                    shogi::PieceType::King => yasai::PieceType::OU,
+                    shogi::PieceType::Rook => yasai::PieceType::HI,
+                    shogi::PieceType::Bishop => yasai::PieceType::KA,
+                    shogi::PieceType::Gold => yasai::PieceType::KI,
+                    shogi::PieceType::Silver => yasai::PieceType::GI,
+                    shogi::PieceType::Knight => yasai::PieceType::KE,
+                    shogi::PieceType::Lance => yasai::PieceType::KY,
+                    shogi::PieceType::Pawn => yasai::PieceType::FU,
+                    shogi::PieceType::ProRook => yasai::PieceType::RY,
+                    shogi::PieceType::ProBishop => yasai::PieceType::UM,
+                    shogi::PieceType::ProSilver => yasai::PieceType::NG,
+                    shogi::PieceType::ProKnight => yasai::PieceType::NK,
+                    shogi::PieceType::ProLance => yasai::PieceType::NY,
+                    shogi::PieceType::ProPawn => yasai::PieceType::TO,
+                };
+                yasai::Piece::from_cp(color, piece_type)
+            })
+    });
+    let mut hand_nums = [[0; yasai::PieceType::NUM_HAND]; yasai::Color::NUM];
+    for c in yasai::Color::ALL {
+        for (i, &pt) in yasai::PieceType::ALL_HAND.iter().enumerate() {
+            let piece_type = match pt {
+                yasai::PieceType::FU => shogi::PieceType::Pawn,
+                yasai::PieceType::KY => shogi::PieceType::Lance,
+                yasai::PieceType::KE => shogi::PieceType::Knight,
+                yasai::PieceType::GI => shogi::PieceType::Silver,
+                yasai::PieceType::KI => shogi::PieceType::Gold,
+                yasai::PieceType::KA => shogi::PieceType::Bishop,
+                yasai::PieceType::HI => shogi::PieceType::Rook,
+                _ => unreachable!(),
+            };
+            let color = match c {
+                yasai::Color::Black => shogi::Color::Black,
+                yasai::Color::White => shogi::Color::White,
+            };
+            hand_nums[c.index()][i] = pos.hand(shogi::Piece { piece_type, color });
+        }
+    }
+    let side_to_move = match pos.side_to_move() {
+        shogi::Color::Black => yasai::Color::Black,
+        shogi::Color::White => yasai::Color::White,
+    };
+    let ply = pos.ply() as u32;
+    yasai::Position::new(board, hand_nums, side_to_move, ply)
+}
 
 pub fn solve(pos: Position) -> Vec<Move> {
     let mut solver: Solver = Solver::default();
@@ -21,15 +76,14 @@ pub fn solve(pos: Position) -> Vec<Move> {
         .map_or(Vec::new(), |(moves, _)| moves.clone())
 }
 
-fn search_all_mates<P, T>(
-    pos: &mut P,
+fn search_all_mates<T>(
+    pos: &mut Position,
     table: &T,
     moves: &mut Vec<Move>,
-    hashes: &mut HashSet<P::T>,
+    hashes: &mut HashSet<u64>,
     solutions: &mut Vec<(Vec<Move>, usize)>,
 ) where
-    P: HashPosition,
-    T: Table<T = P::T>,
+    T: Table,
 {
     let node = if moves.len() & 1 == 0 {
         Node::Or
@@ -50,46 +104,38 @@ fn search_all_mates<P, T>(
         for &(m, h) in &mate_moves {
             moves.push(m);
             hashes.insert(h);
-            pos.make_move(m).expect("failed to make move");
+            pos.do_move(m);
             search_all_mates(pos, table, moves, hashes, solutions);
-            pos.unmake_move().expect("failed to unmake move");
+            pos.undo_move(m);
             moves.pop();
             hashes.remove(&h);
         }
     }
 }
 
-fn calculate_result_and_score<P>(pos: &P, moves: &[Move]) -> (Vec<Move>, usize)
-where
-    P: HashPosition,
-{
+fn calculate_result_and_score(pos: &Position, moves: &[Move]) -> (Vec<Move>, usize) {
     let mut moves = moves.to_vec();
-    let mut total_hands = PieceType::iter()
-        .filter_map(|piece_type| {
-            if piece_type.is_hand_piece() {
-                Some(pos.hand(Piece {
-                    piece_type,
-                    color: pos.side_to_move().flip(),
-                }))
-            } else {
-                None
-            }
-        })
+    let mut total_hands = PieceType::ALL_HAND
+        .map(|pt| pos.hand(!pos.side_to_move()).num(pt))
+        .iter()
         .sum::<u8>();
     // 最終2手が「合駒→同」の場合は、合駒無効の詰みなので削除
     while moves.len() > 2 {
         if let (
-            Move::Drop {
+            MoveType::Drop {
                 to: drop_to,
-                piece_type: _,
+                piece: _,
             },
-            Move::Normal {
+            MoveType::Normal {
                 from: _,
                 to: move_to,
-                promote: _,
+                is_promotion: _,
+                piece: _,
             },
-        ) = (moves[moves.len() - 2], moves[moves.len() - 1])
-        {
+        ) = (
+            moves[moves.len() - 2].move_type(),
+            moves[moves.len() - 1].move_type(),
+        ) {
             if drop_to == move_to {
                 moves.pop();
                 moves.pop();
@@ -106,18 +152,15 @@ where
     for (i, &m) in moves.iter().enumerate() {
         match i & 1 {
             0 => {
-                if let Move::Normal {
+                if let MoveType::Normal {
                     from: _,
                     to,
-                    promote: _,
-                } = m
+                    is_promotion: _,
+                    piece: _,
+                } = m.move_type()
                 {
                     if let Some(piece_type) = drops[to.index()].take() {
-                        if pos.hand(Piece {
-                            piece_type,
-                            color: pos.side_to_move().flip(),
-                        }) > 0
-                        {
+                        if pos.hand(!pos.side_to_move()).num(piece_type) > 0 {
                             // TODO: 候補から除外したいが このパターンだけが候補になる場合もある
                             return (moves, 0);
                         }
@@ -125,8 +168,8 @@ where
                 }
             }
             1 => {
-                if let Move::Drop { to, piece_type } = m {
-                    drops[to.index()] = Some(piece_type);
+                if let MoveType::Drop { to, piece } = m.move_type() {
+                    drops[to.index()] = Some(piece.piece_type());
                 }
             }
             _ => {}
@@ -139,60 +182,44 @@ where
 #[cfg(test)]
 mod tests {
     use super::solve;
-    use shogi::bitboard::Factory;
-    use shogi::{Move, Piece, PieceType, Position, Square};
+    use crate::pos2pos;
+    use yasai::{Move, Position};
+
+    fn pos_from_sfen(sfen: &str) -> Position {
+        let mut pos = shogi::Position::new();
+        pos.set_sfen(sfen).expect("failed to parse SFEN string");
+        pos2pos(&pos)
+    }
 
     fn is_valid_moves(sfen: &str, moves: &[Move]) -> bool {
         if moves.len() % 2 == 0 {
             return false;
         }
-        let mut pos = Position::new();
-        pos.set_sfen(sfen).expect("failed to parse SFEN string");
-        let color = pos.side_to_move().flip();
+        let mut pos = pos_from_sfen(sfen);
         for (i, &m) in moves.iter().enumerate() {
-            if pos.in_check(color) == (i % 2 == 0) {
+            if pos.in_check() == (i % 2 == 0) {
                 return false;
             }
-            pos.make_move(m).expect("failed to make move");
+            pos.do_move(m);
         }
         is_mated(&mut pos)
     }
 
     fn is_mated(pos: &mut Position) -> bool {
-        let color = pos.side_to_move();
-        if !pos.in_check(color) {
+        if !pos.in_check() {
             return false;
         }
-        // all normal moves
-        for from in *pos.player_bb(color) {
-            let piece = pos.piece_at(from).expect("no piece at square");
-            for to in pos.move_candidates(from, piece) {
-                for promote in [true, false] {
-                    if pos.make_move(Move::Normal { from, to, promote }).is_ok() {
-                        return false;
-                    }
-                }
-            }
-        }
-        // all drop moves
-        for piece_type in PieceType::iter().filter(|pt| pt.is_hand_piece()) {
-            if pos.hand(Piece { piece_type, color }) == 0 {
-                continue;
-            }
-            for to in Square::iter() {
-                if pos.make_move(Move::Drop { to, piece_type }).is_ok() {
-                    // TODO: 合駒無効の詰みの場合もある
-                    // return false;
-                }
+        // TODO: 合駒無効の詰みの場合もある
+        for m in pos.legal_moves() {
+            if !m.is_drop() {
+                return false;
             }
         }
         true
     }
 
     #[test]
-    fn test_solve() {
-        Factory::init();
-
+    fn solve_mates() {
         // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/
         let test_cases = vec![
             // head -10 mate3.sfen
@@ -230,56 +257,43 @@ mod tests {
             "3g4l/+R1sg2S2/p1npk1s+Rp/2pb2p2/4g2N1/1p7/P1PP1PP1P/1P1S5/LNK2G1+lL b N3Pb2p 71",
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            let mut pos = Position::new();
-            pos.set_sfen(sfen).expect("failed to parse SFEN string");
-            let ret = solve(pos);
+            let ret = solve(pos_from_sfen(sfen));
             assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
         }
     }
 
     #[test]
-    fn test_ghi_problems() {
-        Factory::init();
-
+    fn ghi_problems() {
         let test_cases = vec![
             "ln1gkg1nl/6+P2/2sppps1p/2p3p2/p8/P1P1P3P/2NP1PP2/3s1KSR1/L1+b2G1NL w R2Pbgp 42", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:1
             "3Bp2n1/5+R2+B/p2p1GSp1/8p/Pn5l1/1n2SNP2/2pPPS1Pk/1P1SK1G2/L1G1G4 b RL3Pl3p 131", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate7.sfen:71
             "7+P1/5R1s1/6ks1/9/5L1p1/9/9/9/9 b R2b4g2s4n3l16p 1", // https://www.shogi.or.jp/tsume_shogi/everyday/20211183_1.html
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            let mut pos = Position::new();
-            pos.set_sfen(sfen).expect("failed to parse SFEN string");
-            let ret = solve(pos);
+            let ret = solve(pos_from_sfen(sfen));
             assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
         }
     }
 
     #[test]
-    fn test_other_problems() {
-        Factory::init();
-
+    fn other_problems() {
         let test_cases = vec![
             "ln1g3k1/5G2l/1+LspSp2p/2p1S2p1/2r3p2/p3P4/1P+BP1P+b1P/2GS5/L2K1G3 b NPr2n5p 79", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:569
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            let mut pos = Position::new();
-            pos.set_sfen(sfen).expect("failed to parse SFEN string");
+            let pos = pos_from_sfen(sfen);
             let ret = solve(pos);
             assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
         }
     }
 
     #[test]
-    fn test_無駄合駒() {
-        Factory::init();
-
+    fn 無駄合駒() {
         let test_cases = vec![
             "7nl/5B1k1/6Ppp/5+R3/9/9/9/9/9 b Srb4g3s3n3l15p 1", // issues/5,
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            let mut pos = Position::new();
-            pos.set_sfen(sfen).expect("failed to parse SFEN string");
-            let ret = solve(pos);
+            let ret = solve(pos_from_sfen(sfen));
             assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
         }
     }

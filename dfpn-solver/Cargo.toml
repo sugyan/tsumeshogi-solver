@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 shogi = "0.12.0"
+yasai = { git = "https://github.com/sugyan/yasai", tag = "0.1.3" }
 rand = { version = "0.8.4", features = ["small_rng"] }
