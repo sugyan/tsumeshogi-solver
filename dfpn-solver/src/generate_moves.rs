@@ -1,4 +1,4 @@
-use crate::Node;
+use crate::types::Node;
 use yasai::{Move, Position};
 
 pub fn generate_legal_moves(pos: &mut Position, node: Node) -> Vec<(Move, u64)> {

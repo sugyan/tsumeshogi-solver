@@ -1,4 +1,5 @@
-use crate::{Table, U};
+use crate::types::Table;
+use crate::U;
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -24,11 +25,5 @@ impl Table for HashMapTable {
     }
     fn put_in_hash(&mut self, key: u64, value: (U, U)) {
         self.table.insert(key, value);
-    }
-    fn len(&self) -> usize {
-        self.table.len()
-    }
-    fn is_empty(&self) -> bool {
-        self.table.is_empty()
     }
 }
