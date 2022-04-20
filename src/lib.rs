@@ -1,65 +1,39 @@
-use dfpn_solver::{generate_legal_moves, Node, Solver, Table, DFPN, INF};
+mod impl_shogi;
+mod impl_yasai;
+use dfpn_solver::{impl_hashmap_table::HashMapTable, Node, Position, Solver, Table, DFPN, INF};
+use impl_shogi::ShogiPosition;
+use impl_yasai::YasaiPosition;
 use std::collections::HashSet;
-use yasai::{Move, MoveType, PieceType, Position};
 
-pub fn pos2pos(pos: &shogi::Position) -> yasai::Position {
-    let board = yasai::Square::ALL.map(|sq| {
-        pos.piece_at(shogi::Square::from_index(sq.index() as u8).unwrap())
-            .map(|p| {
-                let color = match p.color {
-                    shogi::Color::Black => yasai::Color::Black,
-                    shogi::Color::White => yasai::Color::White,
-                };
-                let piece_type = match p.piece_type {
-                    shogi::PieceType::King => yasai::PieceType::OU,
-                    shogi::PieceType::Rook => yasai::PieceType::HI,
-                    shogi::PieceType::Bishop => yasai::PieceType::KA,
-                    shogi::PieceType::Gold => yasai::PieceType::KI,
-                    shogi::PieceType::Silver => yasai::PieceType::GI,
-                    shogi::PieceType::Knight => yasai::PieceType::KE,
-                    shogi::PieceType::Lance => yasai::PieceType::KY,
-                    shogi::PieceType::Pawn => yasai::PieceType::FU,
-                    shogi::PieceType::ProRook => yasai::PieceType::RY,
-                    shogi::PieceType::ProBishop => yasai::PieceType::UM,
-                    shogi::PieceType::ProSilver => yasai::PieceType::NG,
-                    shogi::PieceType::ProKnight => yasai::PieceType::NK,
-                    shogi::PieceType::ProLance => yasai::PieceType::NY,
-                    shogi::PieceType::ProPawn => yasai::PieceType::TO,
-                };
-                yasai::Piece::from_cp(color, piece_type)
-            })
-    });
-    let mut hand_nums = [[0; yasai::PieceType::NUM_HAND]; yasai::Color::NUM];
-    for c in yasai::Color::ALL {
-        for (i, &pt) in yasai::PieceType::ALL_HAND.iter().enumerate() {
-            let piece_type = match pt {
-                yasai::PieceType::FU => shogi::PieceType::Pawn,
-                yasai::PieceType::KY => shogi::PieceType::Lance,
-                yasai::PieceType::KE => shogi::PieceType::Knight,
-                yasai::PieceType::GI => shogi::PieceType::Silver,
-                yasai::PieceType::KI => shogi::PieceType::Gold,
-                yasai::PieceType::KA => shogi::PieceType::Bishop,
-                yasai::PieceType::HI => shogi::PieceType::Rook,
-                _ => unreachable!(),
-            };
-            let color = match c {
-                yasai::Color::Black => shogi::Color::Black,
-                yasai::Color::White => shogi::Color::White,
-            };
-            hand_nums[c.index()][i] = pos.hand(shogi::Piece { piece_type, color });
-        }
-    }
-    let side_to_move = match pos.side_to_move() {
-        shogi::Color::Black => yasai::Color::Black,
-        shogi::Color::White => yasai::Color::White,
-    };
-    let ply = pos.ply() as u32;
-    yasai::Position::new(board, hand_nums, side_to_move, ply)
+pub(crate) trait CalculateResult: Position {
+    fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<Self::M>, usize);
 }
 
-pub fn solve(pos: Position) -> Vec<Move> {
-    let mut solver: Solver = Solver::default();
-    solver.dfpn(pos);
+#[derive(Clone, Copy, Debug)]
+pub enum Impl {
+    Shogi,
+    Yasai,
+}
+
+impl Impl {
+    pub fn all() -> [Impl; 2] {
+        [Impl::Shogi, Impl::Yasai]
+    }
+}
+
+pub fn solve(sfen: &str, implementation: Impl) -> Vec<String> {
+    match implementation {
+        Impl::Shogi => solve_impl(ShogiPosition::from(sfen)),
+        Impl::Yasai => solve_impl(YasaiPosition::from(sfen)),
+    }
+}
+
+fn solve_impl<P>(pos: P) -> Vec<String>
+where
+    P: CalculateResult,
+{
+    let mut solver = Solver::<_, HashMapTable>::new(pos);
+    solver.dfpn();
     let (mut pos, table) = (solver.pos, solver.table);
     let mut solutions = Vec::new();
     search_all_mates(
@@ -71,35 +45,33 @@ pub fn solve(pos: Position) -> Vec<Move> {
     );
     solutions.sort_by_cached_key(|&(_, score)| score);
     solutions.dedup();
-    solutions
-        .last()
-        .map_or(Vec::new(), |(moves, _)| moves.clone())
+    solutions.last().map_or(Vec::new(), |(moves, _)| {
+        moves.iter().map(|m| m.to_string()).collect()
+    })
 }
 
-fn search_all_mates<T>(
-    pos: &mut Position,
+fn search_all_mates<P, T>(
+    pos: &mut P,
     table: &T,
-    moves: &mut Vec<Move>,
+    moves: &mut Vec<P::M>,
     hashes: &mut HashSet<u64>,
-    solutions: &mut Vec<(Vec<Move>, usize)>,
+    solutions: &mut Vec<(Vec<P::M>, usize)>,
 ) where
+    P: CalculateResult,
     T: Table,
 {
-    let node = if moves.len() & 1 == 0 {
-        Node::Or
+    let (node, mate_pd) = if moves.len() & 1 == 0 {
+        (Node::Or, (INF, 0))
     } else {
-        Node::And
+        (Node::And, (0, INF))
     };
-    let mate_pd = match node {
-        Node::Or => (INF, 0),
-        Node::And => (0, INF),
-    };
-    let mate_moves = generate_legal_moves(pos, node)
+    let mate_moves = pos
+        .generate_legal_moves(node)
         .into_iter()
         .filter(|(_, h)| !hashes.contains(h) && table.look_up_hash(h) == mate_pd)
         .collect::<Vec<_>>();
     if mate_moves.is_empty() {
-        solutions.push(calculate_result_and_score(pos, moves));
+        solutions.push(pos.calculate_result_and_score(moves));
     } else {
         for &(m, h) in &mate_moves {
             moves.push(m);
@@ -113,110 +85,10 @@ fn search_all_mates<T>(
     }
 }
 
-fn calculate_result_and_score(pos: &Position, moves: &[Move]) -> (Vec<Move>, usize) {
-    let mut moves = moves.to_vec();
-    let mut total_hands = PieceType::ALL_HAND
-        .map(|pt| pos.hand(!pos.side_to_move()).num(pt))
-        .iter()
-        .sum::<u8>();
-    // 最終2手が「合駒→同」の場合は、合駒無効の詰みなので削除
-    while moves.len() > 2 {
-        if let (
-            MoveType::Drop {
-                to: drop_to,
-                piece: _,
-            },
-            MoveType::Normal {
-                from: _,
-                to: move_to,
-                is_promotion: _,
-                piece: _,
-            },
-        ) = (
-            moves[moves.len() - 2].move_type(),
-            moves[moves.len() - 1].move_type(),
-        ) {
-            if drop_to == move_to {
-                moves.pop();
-                moves.pop();
-                total_hands -= 1;
-                continue;
-            }
-        }
-        break;
-    }
-    // 1. 玉方が合駒として打った駒が後に取られて
-    // 2. 最終的に攻方の持駒に入っている
-    // を満たす場合、無駄合駒とみなす
-    let mut drops = vec![None; 81];
-    for (i, &m) in moves.iter().enumerate() {
-        match i & 1 {
-            0 => {
-                if let MoveType::Normal {
-                    from: _,
-                    to,
-                    is_promotion: _,
-                    piece: _,
-                } = m.move_type()
-                {
-                    if let Some(piece_type) = drops[to.index()].take() {
-                        if pos.hand(!pos.side_to_move()).num(piece_type) > 0 {
-                            // TODO: 候補から除外したいが このパターンだけが候補になる場合もある
-                            return (moves, 0);
-                        }
-                    }
-                }
-            }
-            1 => {
-                if let MoveType::Drop { to, piece } = m.move_type() {
-                    drops[to.index()] = Some(piece.piece_type());
-                }
-            }
-            _ => {}
-        }
-    }
-    let score = moves.len() * 100 - total_hands as usize;
-    (moves, score)
-}
-
 #[cfg(test)]
 mod tests {
     use super::solve;
-    use crate::pos2pos;
-    use yasai::{Move, Position};
-
-    fn pos_from_sfen(sfen: &str) -> Position {
-        let mut pos = shogi::Position::new();
-        pos.set_sfen(sfen).expect("failed to parse SFEN string");
-        pos2pos(&pos)
-    }
-
-    fn is_valid_moves(sfen: &str, moves: &[Move]) -> bool {
-        if moves.len() % 2 == 0 {
-            return false;
-        }
-        let mut pos = pos_from_sfen(sfen);
-        for (i, &m) in moves.iter().enumerate() {
-            if pos.in_check() == (i % 2 == 0) {
-                return false;
-            }
-            pos.do_move(m);
-        }
-        is_mated(&mut pos)
-    }
-
-    fn is_mated(pos: &mut Position) -> bool {
-        if !pos.in_check() {
-            return false;
-        }
-        // TODO: 合駒無効の詰みの場合もある
-        for m in pos.legal_moves() {
-            if !m.is_drop() {
-                return false;
-            }
-        }
-        true
-    }
+    use crate::Impl;
 
     #[test]
     fn solve_mates() {
@@ -256,9 +128,16 @@ mod tests {
             // TODO: "ln3kgRl/2s1g2p1/2ppppn1p/p5p2/6b2/P3P4/1+rPP1PP1P/1P4S2/LNSK1G1NL w GPbsp 50",
             "3g4l/+R1sg2S2/p1npk1s+Rp/2pb2p2/4g2N1/1p7/P1PP1PP1P/1P1S5/LNK2G1+lL b N3Pb2p 71",
         ];
-        for (i, &sfen) in test_cases.iter().enumerate() {
-            let ret = solve(pos_from_sfen(sfen));
-            assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
+        for implementation in Impl::all() {
+            for (i, &sfen) in test_cases.iter().enumerate() {
+                let ret = solve(sfen, implementation);
+                assert!(
+                    ret.len() % 2 == 1,
+                    "failed to solve #{}, by impl {:?}",
+                    i,
+                    implementation
+                );
+            }
         }
     }
 
@@ -269,9 +148,16 @@ mod tests {
             "3Bp2n1/5+R2+B/p2p1GSp1/8p/Pn5l1/1n2SNP2/2pPPS1Pk/1P1SK1G2/L1G1G4 b RL3Pl3p 131", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate7.sfen:71
             "7+P1/5R1s1/6ks1/9/5L1p1/9/9/9/9 b R2b4g2s4n3l16p 1", // https://www.shogi.or.jp/tsume_shogi/everyday/20211183_1.html
         ];
-        for (i, &sfen) in test_cases.iter().enumerate() {
-            let ret = solve(pos_from_sfen(sfen));
-            assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
+        for implementation in Impl::all() {
+            for (i, &sfen) in test_cases.iter().enumerate() {
+                let ret = solve(sfen, implementation);
+                assert!(
+                    ret.len() % 2 == 1,
+                    "failed to solve #{}, by impl {:?}",
+                    i,
+                    implementation
+                );
+            }
         }
     }
 
@@ -280,10 +166,16 @@ mod tests {
         let test_cases = vec![
             "ln1g3k1/5G2l/1+LspSp2p/2p1S2p1/2r3p2/p3P4/1P+BP1P+b1P/2GS5/L2K1G3 b NPr2n5p 79", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:569
         ];
-        for (i, &sfen) in test_cases.iter().enumerate() {
-            let pos = pos_from_sfen(sfen);
-            let ret = solve(pos);
-            assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
+        for implementation in Impl::all() {
+            for (i, &sfen) in test_cases.iter().enumerate() {
+                let ret = solve(sfen, implementation);
+                assert!(
+                    ret.len() % 2 == 1,
+                    "failed to solve #{}, by impl {:?}",
+                    i,
+                    implementation
+                );
+            }
         }
     }
 
@@ -292,9 +184,16 @@ mod tests {
         let test_cases = vec![
             "7nl/5B1k1/6Ppp/5+R3/9/9/9/9/9 b Srb4g3s3n3l15p 1", // issues/5,
         ];
-        for (i, &sfen) in test_cases.iter().enumerate() {
-            let ret = solve(pos_from_sfen(sfen));
-            assert!(is_valid_moves(sfen, &ret), "failed to solve #{}", i);
+        for implementation in Impl::all() {
+            for (i, &sfen) in test_cases.iter().enumerate() {
+                let ret = solve(sfen, implementation);
+                assert!(
+                    ret.len() % 2 == 1,
+                    "failed to solve #{}, by impl {:?}",
+                    i,
+                    implementation
+                );
+            }
         }
     }
 }

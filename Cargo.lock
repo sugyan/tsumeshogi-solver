@@ -116,12 +116,7 @@ dependencies = [
 
 [[package]]
 name = "dfpn-solver"
-version = "0.1.0"
-dependencies = [
- "rand",
- "shogi",
- "yasai",
-]
+version = "0.2.0"
 
 [[package]]
 name = "either"

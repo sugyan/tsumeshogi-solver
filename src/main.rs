@@ -1,12 +1,12 @@
 use clap::{ArgEnum, Parser};
 use csa::{parse_csa, CsaError};
-use shogi::{bitboard::Factory, Position, SfenError};
+use shogi::Position;
 use shogi_converter::kif_converter::{parse_kif, KifError};
 use shogi_converter::Record;
 use std::io::BufRead;
 use std::{fs::File, io::Read, str};
 use thiserror::Error;
-use tsumeshogi_solver::{pos2pos, solve};
+use tsumeshogi_solver::{solve, Impl};
 
 #[derive(Error, Debug)]
 enum ParseError {
@@ -14,28 +14,20 @@ enum ParseError {
     Csa(CsaError),
     #[error("failed to parse kif: {0}")]
     Kif(KifError),
-    #[error("failed to parse sfen: {0}")]
-    Sfen(SfenError),
     #[error(transparent)]
     Utf8(#[from] std::str::Utf8Error),
 }
 
 trait Parse {
-    fn parse(&self, input: &[u8]) -> Result<Position, ParseError>;
+    fn parse(&self, input: &[u8]) -> Result<String, ParseError>;
 }
 
 struct CsaParser;
 
 impl Parse for CsaParser {
-    fn parse(&self, input: &[u8]) -> Result<Position, ParseError> {
+    fn parse(&self, input: &[u8]) -> Result<String, ParseError> {
         match parse_csa(str::from_utf8(input).map_err(ParseError::Utf8)?) {
-            Ok(record) => {
-                let mut pos = Position::new();
-                match pos.set_sfen(&Record::from(record).pos.to_sfen()) {
-                    Ok(_) => Ok(pos),
-                    Err(e) => Err(ParseError::Sfen(e)),
-                }
-            }
+            Ok(record) => Ok(Record::from(record).pos.to_sfen()),
             Err(e) => Err(ParseError::Csa(e)),
         }
     }
@@ -44,14 +36,9 @@ impl Parse for CsaParser {
 struct KifParser;
 
 impl Parse for KifParser {
-    fn parse(&self, input: &[u8]) -> Result<Position, ParseError> {
+    fn parse(&self, input: &[u8]) -> Result<String, ParseError> {
         match parse_kif(input) {
-            Ok(record) => {
-                let mut pos = Position::new();
-                pos.set_sfen(&record.pos.to_sfen())
-                    .expect("failed to parse SFEN string");
-                Ok(pos)
-            }
+            Ok(record) => Ok(record.pos.to_sfen()),
             Err(e) => Err(ParseError::Kif(e)),
         }
     }
@@ -81,8 +68,6 @@ enum Format {
 
 fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
-
-    Factory::init();
     match args.format {
         Format::Sfen => run_sfen(&args.inputs, args.verbose),
         Format::Csa => run_parse(CsaParser, &args.inputs, args.verbose),
@@ -97,7 +82,7 @@ fn run_sfen(inputs: &[String], verbose: bool) -> Result<(), std::io::Error> {
             let sfen = line?;
             let mut pos = Position::new();
             match pos.set_sfen(&sfen) {
-                Ok(()) => run(pos, &sfen, verbose),
+                Ok(()) => run(&sfen, &sfen, verbose),
                 Err(e) => {
                     eprintln!("failed to parse SFEN string: {}", e);
                     std::process::exit(1);
@@ -108,7 +93,7 @@ fn run_sfen(inputs: &[String], verbose: bool) -> Result<(), std::io::Error> {
         for input in inputs {
             let mut pos = Position::new();
             match pos.set_sfen(input) {
-                Ok(()) => run(pos, input.trim(), verbose),
+                Ok(()) => run(input, input.trim(), verbose),
                 Err(e) => {
                     eprintln!("failed to parse SFEN string: {}", e);
                     std::process::exit(1);
@@ -128,7 +113,7 @@ where
         let mut buf = Vec::new();
         stdin.lock().read_to_end(&mut buf)?;
         match parser.parse(&buf) {
-            Ok(pos) => run(pos, "-", verbose),
+            Ok(sfen) => run(&sfen, "-", verbose),
             Err(e) => {
                 eprintln!("failed to parse input: {}", e);
                 std::process::exit(1);
@@ -146,7 +131,7 @@ where
             };
             file.read_to_end(&mut buf)?;
             match parser.parse(&buf) {
-                Ok(pos) => run(pos, input, verbose),
+                Ok(sfen) => run(&sfen, input, verbose),
                 Err(e) => {
                     eprintln!("failed to parse input {}: {}", input, e);
                     std::process::exit(1);
@@ -157,16 +142,14 @@ where
     Ok(())
 }
 
-fn run(pos: Position, input: &str, verbose: bool) {
+fn run(sfen: &str, input: &str, verbose: bool) {
     print!("{}: ", input);
     if verbose {
+        let mut pos = Position::new();
+        pos.set_sfen(sfen).expect("failed to parse SFEN string");
         println!();
-        println!("{}", pos);
+        println!("{pos}");
         println!();
     }
-    let pos = pos2pos(&pos);
-    println!(
-        "{:?}",
-        solve(pos).iter().map(|m| m.to_string()).collect::<Vec<_>>()
-    );
+    println!("{:?}", solve(sfen, Impl::Yasai));
 }

@@ -1,6 +1,5 @@
 use crate::U;
-use std::ops;
-use yasai::Position;
+use std::{fmt, ops};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Node {
@@ -19,15 +18,24 @@ impl ops::Not for Node {
     }
 }
 
+pub trait Position {
+    type M: Copy + PartialEq + fmt::Display;
+
+    fn hash_key(&self) -> u64;
+    fn generate_legal_moves(&mut self, node: Node) -> Vec<(Self::M, u64)>;
+    fn do_move(&mut self, m: Self::M);
+    fn undo_move(&mut self, m: Self::M);
+}
+
 pub trait Table: Default {
     fn look_up_hash(&self, key: &u64) -> (U, U);
     fn put_in_hash(&mut self, key: u64, value: (U, U));
 }
 
-pub trait DFPN<T>
+pub trait DFPN<P, T>
 where
+    P: Position,
     T: Table,
 {
-    // ルートでの反復深化
-    fn dfpn(&mut self, pos: Position);
+    fn dfpn(&mut self);
 }
