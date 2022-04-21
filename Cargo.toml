@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 dfpn-solver = { path = "./dfpn-solver" }
 shogi-converter = { path = "./shogi-converter" }
-csa = "0.6"
+csa = "1.0.1"
 clap = { version = "3.1.1", features = ["derive"] }
 shogi = "0.12.1"
 thiserror = "1.0.30"
