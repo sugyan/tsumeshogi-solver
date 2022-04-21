@@ -43,13 +43,13 @@ Hand (Black):
 Hand (White): g4 s4 n4 l3 p14
 Ply: 1
 
-["7e7b+", "9d9g", "7f7c"]
+["+7572NY", "-0086KE", "+7673RY"]
 ```
 
 ### Run
 
 ```
-Tsumeshogi Solver 0.3.0
+Tsumeshogi Solver 0.4.0
 
 USAGE:
     tsumeshogi-solver [OPTIONS] <INPUTS>...
