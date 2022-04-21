@@ -90,14 +90,14 @@ impl dfpn_solver::Position for YasaiPosition {
 }
 
 impl CalculateResult for YasaiPosition {
-    fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<Self::M>, usize) {
-        let mut moves = moves.to_vec();
+    fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<String>, usize) {
+        let (mut ret, mut len) = (Vec::new(), moves.len());
         let mut total_hands = PieceType::ALL_HAND
             .map(|pt| self.0.hand(!self.0.side_to_move()).num(pt))
             .iter()
             .sum::<u8>();
         // 最終2手が「合駒→同」の場合は、合駒無効の詰みなので削除
-        while moves.len() > 2 {
+        while len > 2 {
             if let (
                 MoveType::Drop {
                     to: drop_to,
@@ -109,13 +109,10 @@ impl CalculateResult for YasaiPosition {
                     is_promotion: _,
                     piece: _,
                 },
-            ) = (
-                moves[moves.len() - 2].move_type(),
-                moves[moves.len() - 1].move_type(),
-            ) {
+            ) = (moves[len - 2].move_type(), moves[len - 1].move_type())
+            {
                 if drop_to == move_to {
-                    moves.pop();
-                    moves.pop();
+                    len -= 2;
                     total_hands -= 1;
                     continue;
                 }
@@ -126,33 +123,33 @@ impl CalculateResult for YasaiPosition {
         // 2. 最終的に攻方の持駒に入っている
         // を満たす場合、無駄合駒とみなす
         let mut drops = vec![None; 81];
-        for (i, &m) in moves.iter().enumerate() {
-            match i & 1 {
-                0 => {
-                    if let MoveType::Normal {
-                        from: _,
-                        to,
-                        is_promotion: _,
-                        piece: _,
-                    } = m.move_type()
-                    {
-                        if let Some(piece_type) = drops[to.index()].take() {
-                            if self.0.hand(!self.0.side_to_move()).num(piece_type) > 0 {
-                                // TODO: 候補から除外したいが このパターンだけが候補になる場合もある
-                                return (moves, 0);
-                            }
+        let mut zero = false;
+        for (i, &m) in (0..len).zip(moves) {
+            if i % 2 == 0 {
+                if let MoveType::Normal {
+                    from: _,
+                    to,
+                    is_promotion: _,
+                    piece: _,
+                } = m.move_type()
+                {
+                    if let Some(piece_type) = drops[to.index()].take() {
+                        if self.0.hand(!self.0.side_to_move()).num(piece_type) > 0 {
+                            // TODO: 候補から除外したいが このパターンだけが候補になる場合もある
+                            zero = true;
                         }
                     }
                 }
-                1 => {
-                    if let MoveType::Drop { to, piece } = m.move_type() {
-                        drops[to.index()] = Some(piece.piece_type());
-                    }
-                }
-                _ => {}
+            } else if let MoveType::Drop { to, piece } = m.move_type() {
+                drops[to.index()] = Some(piece.piece_type());
             }
+            ret.push(m.to_string());
         }
-        let score = moves.len() * 100 - total_hands as usize;
-        (moves, score)
+        let score = if zero {
+            0
+        } else {
+            len * 100 - total_hands as usize
+        };
+        (ret, score)
     }
 }

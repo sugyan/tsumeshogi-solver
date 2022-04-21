@@ -8,7 +8,7 @@ pub use impl_yasai::YasaiPosition;
 use std::collections::HashSet;
 
 pub(crate) trait CalculateResult: Position {
-    fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<Self::M>, usize);
+    fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<String>, usize);
 }
 
 #[derive(Clone, Copy, Debug, ArgEnum, PartialEq, Eq)]
@@ -47,9 +47,9 @@ where
     );
     solutions.sort_by_cached_key(|&(_, score)| score);
     solutions.dedup();
-    solutions.last().map_or(Vec::new(), |(moves, _)| {
-        moves.iter().map(|m| m.to_string()).collect()
-    })
+    solutions
+        .last()
+        .map_or(Vec::new(), |(moves, _)| moves.clone())
 }
 
 fn search_all_mates<P, T>(
@@ -57,7 +57,7 @@ fn search_all_mates<P, T>(
     table: &T,
     moves: &mut Vec<P::M>,
     hashes: &mut HashSet<u64>,
-    solutions: &mut Vec<(Vec<P::M>, usize)>,
+    solutions: &mut Vec<(Vec<String>, usize)>,
 ) where
     P: CalculateResult,
     T: Table,
@@ -72,7 +72,7 @@ fn search_all_mates<P, T>(
         .into_iter()
         .filter(|(_, h)| !hashes.contains(h) && table.look_up_hash(h) == mate_pd)
         .collect::<Vec<_>>();
-    if mate_moves.is_empty() {
+    if node == Node::And && mate_moves.is_empty() {
         solutions.push(pos.calculate_result_and_score(moves));
     } else {
         for &(m, h) in &mate_moves {
@@ -200,6 +200,26 @@ mod tests {
                 let ret = solve(sfen, implementation);
                 assert!(
                     ret.len() % 2 == 1,
+                    "failed to solve #{}, by impl {:?}",
+                    i,
+                    implementation
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn 不詰() {
+        Factory::init();
+
+        let test_cases = vec![
+            "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1", // initial position
+        ];
+        for implementation in Impl::all() {
+            for (i, &sfen) in test_cases.iter().enumerate() {
+                let ret = solve(sfen, implementation);
+                assert!(
+                    ret.is_empty(),
                     "failed to solve #{}, by impl {:?}",
                     i,
                     implementation

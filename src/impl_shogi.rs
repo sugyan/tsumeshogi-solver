@@ -181,8 +181,8 @@ impl Hash for ShogiPosition {
 }
 
 impl CalculateResult for ShogiPosition {
-    fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<Self::M>, usize) {
-        let mut moves = moves.to_vec();
+    fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<String>, usize) {
+        let (mut ret, mut len) = (Vec::new(), moves.len());
         let mut total_hands = PieceType::iter()
             .filter_map(|piece_type| {
                 if piece_type.is_hand_piece() {
@@ -195,7 +195,7 @@ impl CalculateResult for ShogiPosition {
                 }
             })
             .sum::<u8>();
-        while moves.len() > 2 {
+        while len > 2 {
             if let (
                 Move::Drop {
                     to: drop_to,
@@ -206,11 +206,10 @@ impl CalculateResult for ShogiPosition {
                     to: move_to,
                     promote: _,
                 },
-            ) = (moves[moves.len() - 2], moves[moves.len() - 1])
+            ) = (moves[len - 2], moves[len - 1])
             {
                 if drop_to == move_to {
-                    moves.pop();
-                    moves.pop();
+                    len -= 2;
                     total_hands -= 1;
                     continue;
                 }
@@ -221,36 +220,36 @@ impl CalculateResult for ShogiPosition {
         // 2. 最終的に攻方の持駒に入っている
         // を満たす場合、無駄合駒とみなす
         let mut drops = vec![None; 81];
-        for (i, &m) in moves.iter().enumerate() {
-            match i & 1 {
-                0 => {
-                    if let Move::Normal {
-                        from: _,
-                        to,
-                        promote: _,
-                    } = m
-                    {
-                        if let Some(piece_type) = drops[to.index()].take() {
-                            if self.0.hand(Piece {
-                                piece_type,
-                                color: self.0.side_to_move().flip(),
-                            }) > 0
-                            {
-                                // TODO: 候補から除外したいが このパターンだけが候補になる場合もある
-                                return (moves, 0);
-                            }
+        let mut zero = false;
+        for (i, &m) in (0..len).zip(moves) {
+            if i % 2 == 0 {
+                if let Move::Normal {
+                    from: _,
+                    to,
+                    promote: _,
+                } = m
+                {
+                    if let Some(piece_type) = drops[to.index()].take() {
+                        if self.0.hand(Piece {
+                            piece_type,
+                            color: self.0.side_to_move().flip(),
+                        }) > 0
+                        {
+                            // TODO: 候補から除外したいが このパターンだけが候補になる場合もある
+                            zero = true;
                         }
                     }
                 }
-                1 => {
-                    if let Move::Drop { to, piece_type } = m {
-                        drops[to.index()] = Some(piece_type);
-                    }
-                }
-                _ => {}
+            } else if let Move::Drop { to, piece_type } = m {
+                drops[to.index()] = Some(piece_type);
             }
+            ret.push(m.to_string());
         }
-        let score = moves.len() * 100 - total_hands as usize;
-        (moves, score)
+        let score = if zero {
+            0
+        } else {
+            len * 100 - total_hands as usize
+        };
+        (ret, score)
     }
 }

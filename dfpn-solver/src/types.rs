@@ -1,5 +1,5 @@
 use crate::U;
-use std::{fmt, ops};
+use std::ops;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Node {
@@ -19,7 +19,7 @@ impl ops::Not for Node {
 }
 
 pub trait Position {
-    type M: Copy + PartialEq + fmt::Display;
+    type M: Copy + PartialEq;
 
     fn hash_key(&self) -> u64;
     fn generate_legal_moves(&mut self, node: Node) -> Vec<(Self::M, u64)>;
