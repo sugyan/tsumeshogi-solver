@@ -1,12 +1,11 @@
 use clap::{ArgEnum, Parser};
 use csa::{parse_csa, CsaError};
-use shogi::{bitboard::Factory, Position, SfenError};
+use shogi::{bitboard::Factory, Position};
 use shogi_converter::kif_converter::{parse_kif, KifError};
 use shogi_converter::Record;
-use std::io::BufRead;
-use std::{fs::File, io::Read, str};
+use std::{fs::File, io::BufRead, io::Read, str, time::Instant};
 use thiserror::Error;
-use tsumeshogi_solver::solve;
+use tsumeshogi_solver::{solve, Backend};
 
 #[derive(Error, Debug)]
 enum ParseError {
@@ -14,28 +13,20 @@ enum ParseError {
     Csa(CsaError),
     #[error("failed to parse kif: {0}")]
     Kif(KifError),
-    #[error("failed to parse sfen: {0}")]
-    Sfen(SfenError),
     #[error(transparent)]
-    Utf8(#[from] std::str::Utf8Error),
+    Utf8(#[from] str::Utf8Error),
 }
 
 trait Parse {
-    fn parse(&self, input: &[u8]) -> Result<Position, ParseError>;
+    fn parse(&self, input: &[u8]) -> Result<String, ParseError>;
 }
 
 struct CsaParser;
 
 impl Parse for CsaParser {
-    fn parse(&self, input: &[u8]) -> Result<Position, ParseError> {
+    fn parse(&self, input: &[u8]) -> Result<String, ParseError> {
         match parse_csa(str::from_utf8(input).map_err(ParseError::Utf8)?) {
-            Ok(record) => {
-                let mut pos = Position::new();
-                match pos.set_sfen(&Record::from(record).pos.to_sfen()) {
-                    Ok(_) => Ok(pos),
-                    Err(e) => Err(ParseError::Sfen(e)),
-                }
-            }
+            Ok(record) => Ok(Record::from(record).pos.to_sfen()),
             Err(e) => Err(ParseError::Csa(e)),
         }
     }
@@ -44,14 +35,9 @@ impl Parse for CsaParser {
 struct KifParser;
 
 impl Parse for KifParser {
-    fn parse(&self, input: &[u8]) -> Result<Position, ParseError> {
+    fn parse(&self, input: &[u8]) -> Result<String, ParseError> {
         match parse_kif(input) {
-            Ok(record) => {
-                let mut pos = Position::new();
-                pos.set_sfen(&record.pos.to_sfen())
-                    .expect("failed to parse SFEN string");
-                Ok(pos)
-            }
+            Ok(record) => Ok(record.pos.to_sfen()),
             Err(e) => Err(ParseError::Kif(e)),
         }
     }
@@ -67,7 +53,10 @@ struct Args {
     /// Input format
     #[clap(short, long, arg_enum, value_name = "FORMAT", default_value_t = Format::Sfen)]
     format: Format,
-    /// Input files or strings
+    /// Backend implementation
+    #[clap(long = "backend", arg_enum, value_name = "BACKEND", default_value_t = Backend::Yasai)]
+    backend: Backend,
+    /// Input files or SFEN strings
     #[clap(required(true))]
     inputs: Vec<String>,
 }
@@ -81,23 +70,24 @@ enum Format {
 
 fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
-
-    Factory::init();
+    if args.backend == Backend::Shogi {
+        Factory::init();
+    }
     match args.format {
-        Format::Sfen => run_sfen(&args.inputs, args.verbose),
-        Format::Csa => run_parse(CsaParser, &args.inputs, args.verbose),
-        Format::Kif => run_parse(KifParser, &args.inputs, args.verbose),
+        Format::Sfen => run_sfen(&args),
+        Format::Csa => run_parse(CsaParser, &args),
+        Format::Kif => run_parse(KifParser, &args),
     }
 }
 
-fn run_sfen(inputs: &[String], verbose: bool) -> Result<(), std::io::Error> {
-    if inputs == ["-"] {
+fn run_sfen(args: &Args) -> Result<(), std::io::Error> {
+    if args.inputs == ["-"] {
         let stdin = std::io::stdin();
         for line in stdin.lock().lines() {
             let sfen = line?;
             let mut pos = Position::new();
             match pos.set_sfen(&sfen) {
-                Ok(()) => run(pos, &sfen, verbose),
+                Ok(()) => run(&sfen, &sfen, args),
                 Err(e) => {
                     eprintln!("failed to parse SFEN string: {}", e);
                     std::process::exit(1);
@@ -105,10 +95,10 @@ fn run_sfen(inputs: &[String], verbose: bool) -> Result<(), std::io::Error> {
             }
         }
     } else {
-        for input in inputs {
+        for input in &args.inputs {
             let mut pos = Position::new();
             match pos.set_sfen(input) {
-                Ok(()) => run(pos, input.trim(), verbose),
+                Ok(()) => run(input, input.trim(), args),
                 Err(e) => {
                     eprintln!("failed to parse SFEN string: {}", e);
                     std::process::exit(1);
@@ -119,23 +109,23 @@ fn run_sfen(inputs: &[String], verbose: bool) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn run_parse<T>(parser: T, inputs: &[String], verbose: bool) -> Result<(), std::io::Error>
+fn run_parse<T>(parser: T, args: &Args) -> Result<(), std::io::Error>
 where
     T: Parse,
 {
-    if inputs == ["-"] {
+    if args.inputs == ["-"] {
         let stdin = std::io::stdin();
         let mut buf = Vec::new();
         stdin.lock().read_to_end(&mut buf)?;
         match parser.parse(&buf) {
-            Ok(pos) => run(pos, "-", verbose),
+            Ok(sfen) => run(&sfen, "-", args),
             Err(e) => {
                 eprintln!("failed to parse input: {}", e);
                 std::process::exit(1);
             }
         }
     } else {
-        for input in inputs {
+        for input in &args.inputs {
             let mut buf = Vec::new();
             let mut file = match File::open(input) {
                 Ok(file) => file,
@@ -146,7 +136,7 @@ where
             };
             file.read_to_end(&mut buf)?;
             match parser.parse(&buf) {
-                Ok(pos) => run(pos, input, verbose),
+                Ok(sfen) => run(&sfen, input, args),
                 Err(e) => {
                     eprintln!("failed to parse input {}: {}", input, e);
                     std::process::exit(1);
@@ -157,15 +147,19 @@ where
     Ok(())
 }
 
-fn run(pos: Position, input: &str, verbose: bool) {
+fn run(sfen: &str, input: &str, args: &Args) {
     print!("{}: ", input);
-    if verbose {
+    if args.verbose {
+        let mut pos = Position::new();
+        pos.set_sfen(sfen).expect("failed to parse SFEN string");
         println!();
-        println!("{}", pos);
+        println!("{pos}");
         println!();
     }
-    println!(
-        "{:?}",
-        solve(pos).iter().map(|m| m.to_string()).collect::<Vec<_>>()
-    );
+    let now = Instant::now();
+    println!("{:?}", solve(sfen, args.backend));
+    let elapsed = now.elapsed();
+    if args.verbose {
+        println!("elapsed: {:?}", elapsed);
+    }
 }

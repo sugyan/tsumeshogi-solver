@@ -1,12 +1,10 @@
 #![feature(test)]
 extern crate test;
-use dfpn_solver::impl_default_hash::DefaultHashPosition;
 use dfpn_solver::impl_hashmap_table::HashMapTable;
 use dfpn_solver::impl_vec_table::VecTable;
-use dfpn_solver::impl_zobrist_hash::ZobristHashPosition;
 use dfpn_solver::{Solver, DFPN};
 use shogi::bitboard::Factory;
-use shogi::Position;
+use tsumeshogi_solver::{ShogiPosition, YasaiPosition};
 
 fn test_cases() -> Vec<String> {
     vec![
@@ -39,44 +37,45 @@ fn test_cases() -> Vec<String> {
 }
 
 #[bench]
-fn bench_default_hashmap(b: &mut test::Bencher) {
-    Factory::init();
-
+fn bench_yasai_hashmap(b: &mut test::Bencher) {
     b.iter(|| {
         for sfen in test_cases() {
-            let mut pos = Position::new();
-            pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            Solver::new(DefaultHashPosition::default(), HashMapTable::default()).dfpn(pos);
+            let mut solver = Solver::<_, HashMapTable>::new(YasaiPosition::from(sfen.as_str()));
+            solver.dfpn();
         }
-    });
+    })
 }
 
 #[bench]
-fn bench_zobrist_hashmap(b: &mut test::Bencher) {
-    Factory::init();
-
+fn bench_yasai_vec(b: &mut test::Bencher) {
     b.iter(|| {
         for sfen in test_cases() {
-            let mut pos = Position::new();
-            pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            Solver::new(
-                ZobristHashPosition::default(),
-                HashMapTable::<u64>::default(),
-            )
-            .dfpn(pos);
+            let mut solver = Solver::<_, VecTable>::new(YasaiPosition::from(sfen.as_str()));
+            solver.dfpn();
         }
-    });
+    })
 }
 
 #[bench]
-fn bench_zobrist_vec(b: &mut test::Bencher) {
+fn bench_shogi_hashmap(b: &mut test::Bencher) {
     Factory::init();
 
     b.iter(|| {
         for sfen in test_cases() {
-            let mut pos = Position::new();
-            pos.set_sfen(&sfen).expect("failed to parse SFEN string");
-            Solver::new(ZobristHashPosition::default(), VecTable::new(16)).dfpn(pos);
+            let mut solver = Solver::<_, HashMapTable>::new(ShogiPosition::from(sfen.as_str()));
+            solver.dfpn();
         }
-    });
+    })
+}
+
+#[bench]
+fn bench_shogi_vec(b: &mut test::Bencher) {
+    Factory::init();
+
+    b.iter(|| {
+        for sfen in test_cases() {
+            let mut solver = Solver::<_, VecTable>::new(ShogiPosition::from(sfen.as_str()));
+            solver.dfpn();
+        }
+    })
 }

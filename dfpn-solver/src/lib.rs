@@ -1,15 +1,10 @@
-mod dfpn;
-pub mod generate_moves;
-pub mod impl_default_hash;
 pub mod impl_hashmap_table;
-pub mod impl_solver;
 pub mod impl_vec_table;
-pub mod impl_zobrist_hash;
-pub mod solver;
+mod solver;
+mod types;
 
-pub use generate_moves::*;
-pub use impl_solver::*;
 pub use solver::*;
+pub use types::*;
 
 type U = u32;
 pub const INF: U = U::MAX;
