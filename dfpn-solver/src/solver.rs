@@ -2,7 +2,6 @@ use crate::impl_hashmap_table::HashMapTable;
 use crate::types::{Node, Table, DFPN};
 use crate::{Position, INF, U};
 
-#[derive(Default)]
 pub struct Solver<P, T = HashMapTable> {
     pub pos: P,
     pub table: T,

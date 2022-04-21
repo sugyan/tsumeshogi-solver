@@ -1,5 +1,6 @@
 mod impl_shogi;
 mod impl_yasai;
+use clap::ArgEnum;
 use dfpn_solver::{impl_hashmap_table::HashMapTable, Node, Position, Solver, Table, DFPN, INF};
 use impl_shogi::ShogiPosition;
 use impl_yasai::YasaiPosition;
@@ -9,7 +10,7 @@ pub(crate) trait CalculateResult: Position {
     fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<Self::M>, usize);
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, ArgEnum)]
 pub enum Impl {
     Shogi,
     Yasai,
