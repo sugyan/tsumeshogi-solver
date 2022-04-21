@@ -124,7 +124,7 @@ impl CalculateResult for YasaiPosition {
         // を満たす場合、無駄合駒とみなす
         let mut drops = vec![None; 81];
         let mut zero = false;
-        for (i, &m) in (0..len).zip(moves) {
+        for (i, m) in moves.iter().enumerate().take(len) {
             if i % 2 == 0 {
                 if let MoveType::Normal {
                     from: _,

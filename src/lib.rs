@@ -1,10 +1,9 @@
-mod impl_shogi;
-mod impl_yasai;
+mod backend;
 
+pub use backend::shogi::ShogiPosition;
+pub use backend::yasai::YasaiPosition;
 use clap::ArgEnum;
 use dfpn_solver::{impl_hashmap_table::HashMapTable, Node, Position, Solver, Table, DFPN, INF};
-pub use impl_shogi::ShogiPosition;
-pub use impl_yasai::YasaiPosition;
 use std::collections::HashSet;
 
 pub(crate) trait CalculateResult: Position {
@@ -12,21 +11,21 @@ pub(crate) trait CalculateResult: Position {
 }
 
 #[derive(Clone, Copy, Debug, ArgEnum, PartialEq, Eq)]
-pub enum Impl {
+pub enum Backend {
     Shogi,
     Yasai,
 }
 
-impl Impl {
-    pub fn all() -> [Impl; 2] {
-        [Impl::Shogi, Impl::Yasai]
+impl Backend {
+    pub fn all() -> [Backend; 2] {
+        [Backend::Shogi, Backend::Yasai]
     }
 }
 
-pub fn solve(sfen: &str, implementation: Impl) -> Vec<String> {
-    match implementation {
-        Impl::Shogi => solve_impl(ShogiPosition::from(sfen)),
-        Impl::Yasai => solve_impl(YasaiPosition::from(sfen)),
+pub fn solve(sfen: &str, backend: Backend) -> Vec<String> {
+    match backend {
+        Backend::Shogi => solve_impl(ShogiPosition::from(sfen)),
+        Backend::Yasai => solve_impl(YasaiPosition::from(sfen)),
     }
 }
 
@@ -90,7 +89,7 @@ fn search_all_mates<P, T>(
 #[cfg(test)]
 mod tests {
     use super::solve;
-    use crate::Impl;
+    use crate::Backend;
     use shogi::bitboard::Factory;
 
     #[test]
@@ -133,14 +132,14 @@ mod tests {
             // TODO: "ln3kgRl/2s1g2p1/2ppppn1p/p5p2/6b2/P3P4/1+rPP1PP1P/1P4S2/LNSK1G1NL w GPbsp 50",
             "3g4l/+R1sg2S2/p1npk1s+Rp/2pb2p2/4g2N1/1p7/P1PP1PP1P/1P1S5/LNK2G1+lL b N3Pb2p 71",
         ];
-        for implementation in Impl::all() {
+        for backend in Backend::all() {
             for (i, &sfen) in test_cases.iter().enumerate() {
-                let ret = solve(sfen, implementation);
+                let ret = solve(sfen, backend);
                 assert!(
                     ret.len() % 2 == 1,
-                    "failed to solve #{}, by impl {:?}",
+                    "failed to solve #{}, by backend {:?}",
                     i,
-                    implementation
+                    backend
                 );
             }
         }
@@ -155,14 +154,14 @@ mod tests {
             "3Bp2n1/5+R2+B/p2p1GSp1/8p/Pn5l1/1n2SNP2/2pPPS1Pk/1P1SK1G2/L1G1G4 b RL3Pl3p 131", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate7.sfen:71
             "7+P1/5R1s1/6ks1/9/5L1p1/9/9/9/9 b R2b4g2s4n3l16p 1", // https://www.shogi.or.jp/tsume_shogi/everyday/20211183_1.html
         ];
-        for implementation in Impl::all() {
+        for backend in Backend::all() {
             for (i, &sfen) in test_cases.iter().enumerate() {
-                let ret = solve(sfen, implementation);
+                let ret = solve(sfen, backend);
                 assert!(
                     ret.len() % 2 == 1,
-                    "failed to solve #{}, by impl {:?}",
+                    "failed to solve #{}, by backend {:?}",
                     i,
-                    implementation
+                    backend
                 );
             }
         }
@@ -175,14 +174,14 @@ mod tests {
         let test_cases = vec![
             "ln1g3k1/5G2l/1+LspSp2p/2p1S2p1/2r3p2/p3P4/1P+BP1P+b1P/2GS5/L2K1G3 b NPr2n5p 79", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:569
         ];
-        for implementation in Impl::all() {
+        for backend in Backend::all() {
             for (i, &sfen) in test_cases.iter().enumerate() {
-                let ret = solve(sfen, implementation);
+                let ret = solve(sfen, backend);
                 assert!(
                     ret.len() % 2 == 1,
-                    "failed to solve #{}, by impl {:?}",
+                    "failed to solve #{}, by backend {:?}",
                     i,
-                    implementation
+                    backend
                 );
             }
         }
@@ -195,14 +194,14 @@ mod tests {
         let test_cases = vec![
             "7nl/5B1k1/6Ppp/5+R3/9/9/9/9/9 b Srb4g3s3n3l15p 1", // issues/5,
         ];
-        for implementation in Impl::all() {
+        for backend in Backend::all() {
             for (i, &sfen) in test_cases.iter().enumerate() {
-                let ret = solve(sfen, implementation);
+                let ret = solve(sfen, backend);
                 assert!(
                     ret.len() % 2 == 1,
-                    "failed to solve #{}, by impl {:?}",
+                    "failed to solve #{}, by backend {:?}",
                     i,
-                    implementation
+                    backend
                 );
             }
         }
@@ -215,14 +214,14 @@ mod tests {
         let test_cases = vec![
             "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1", // initial position
         ];
-        for implementation in Impl::all() {
+        for backend in Backend::all() {
             for (i, &sfen) in test_cases.iter().enumerate() {
-                let ret = solve(sfen, implementation);
+                let ret = solve(sfen, backend);
                 assert!(
                     ret.is_empty(),
-                    "failed to solve #{}, by impl {:?}",
+                    "failed to solve #{}, by backend {:?}",
                     i,
-                    implementation
+                    backend
                 );
             }
         }

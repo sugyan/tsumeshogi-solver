@@ -49,7 +49,7 @@ Ply: 1
 ### Run
 
 ```
-Tsumeshogi Solver 0.4.0
+Tsumeshogi Solver 0.3.0
 
 USAGE:
     tsumeshogi-solver [OPTIONS] <INPUTS>...
@@ -58,12 +58,12 @@ ARGS:
     <INPUTS>...    Input files or SFEN strings
 
 OPTIONS:
-    -f, --format <FORMAT>          Input format [default: sfen] [possible values: sfen, csa, kif]
-    -h, --help                     Print help information
-        --impl <IMPLEMENTATION>    Backend implementation [default: yasai] [possible values: shogi,
-                                   yasai]
-    -v, --verbose                  Verbose mode
-    -V, --version                  Print version information
+        --backend <BACKEND>    Backend implementation [default: yasai] [possible values: shogi,
+                               yasai]
+    -f, --format <FORMAT>      Input format [default: sfen] [possible values: sfen, csa, kif]
+    -h, --help                 Print help information
+    -v, --verbose              Verbose mode
+    -V, --version              Print version information
 ```
 
 

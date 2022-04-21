@@ -5,7 +5,7 @@ use shogi_converter::kif_converter::{parse_kif, KifError};
 use shogi_converter::Record;
 use std::{fs::File, io::BufRead, io::Read, str, time::Instant};
 use thiserror::Error;
-use tsumeshogi_solver::{solve, Impl};
+use tsumeshogi_solver::{solve, Backend};
 
 #[derive(Error, Debug)]
 enum ParseError {
@@ -54,8 +54,8 @@ struct Args {
     #[clap(short, long, arg_enum, value_name = "FORMAT", default_value_t = Format::Sfen)]
     format: Format,
     /// Backend implementation
-    #[clap(long = "impl", arg_enum, value_name = "IMPLEMENTATION", default_value_t = Impl::Yasai)]
-    implementation: Impl,
+    #[clap(long = "backend", arg_enum, value_name = "BACKEND", default_value_t = Backend::Yasai)]
+    backend: Backend,
     /// Input files or SFEN strings
     #[clap(required(true))]
     inputs: Vec<String>,
@@ -70,6 +70,9 @@ enum Format {
 
 fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
+    if args.backend == Backend::Shogi {
+        Factory::init();
+    }
     match args.format {
         Format::Sfen => run_sfen(&args),
         Format::Csa => run_parse(CsaParser, &args),
@@ -145,10 +148,6 @@ where
 }
 
 fn run(sfen: &str, input: &str, args: &Args) {
-    if args.implementation == Impl::Shogi {
-        Factory::init();
-    }
-
     print!("{}: ", input);
     if args.verbose {
         let mut pos = Position::new();
@@ -158,7 +157,7 @@ fn run(sfen: &str, input: &str, args: &Args) {
         println!();
     }
     let now = Instant::now();
-    println!("{:?}", solve(sfen, args.implementation));
+    println!("{:?}", solve(sfen, args.backend));
     let elapsed = now.elapsed();
     if args.verbose {
         println!("elapsed: {:?}", elapsed);
