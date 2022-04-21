@@ -2,7 +2,7 @@ use crate::CalculateResult;
 use dfpn_solver::Node;
 use yasai::{Move, MoveType, PieceType, Position};
 
-pub(crate) struct YasaiPosition(Position);
+pub struct YasaiPosition(Position);
 
 impl From<&str> for YasaiPosition {
     fn from(sfen: &str) -> Self {

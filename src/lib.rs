@@ -1,9 +1,10 @@
 mod impl_shogi;
 mod impl_yasai;
+
 use clap::ArgEnum;
 use dfpn_solver::{impl_hashmap_table::HashMapTable, Node, Position, Solver, Table, DFPN, INF};
-use impl_shogi::ShogiPosition;
-use impl_yasai::YasaiPosition;
+pub use impl_shogi::ShogiPosition;
+pub use impl_yasai::YasaiPosition;
 use std::collections::HashSet;
 
 pub(crate) trait CalculateResult: Position {

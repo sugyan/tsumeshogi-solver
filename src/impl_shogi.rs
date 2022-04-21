@@ -5,7 +5,7 @@ use shogi::{Color, Move, MoveError, Piece, PieceType, Position, Square};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-pub(crate) struct ShogiPosition(Position);
+pub struct ShogiPosition(Position);
 
 impl ShogiPosition {
     fn try_legal_move(&mut self, m: Move, node: Node) -> Result<u64, MoveError> {
