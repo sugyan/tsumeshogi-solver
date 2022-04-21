@@ -1,10 +1,9 @@
 use clap::{ArgEnum, Parser};
 use csa::{parse_csa, CsaError};
-use shogi::Position;
+use shogi::{bitboard::Factory, Position};
 use shogi_converter::kif_converter::{parse_kif, KifError};
 use shogi_converter::Record;
-use std::io::BufRead;
-use std::{fs::File, io::Read, str, time::Instant};
+use std::{fs::File, io::BufRead, io::Read, str, time::Instant};
 use thiserror::Error;
 use tsumeshogi_solver::{solve, Impl};
 
@@ -146,6 +145,10 @@ where
 }
 
 fn run(sfen: &str, input: &str, args: &Args) {
+    if args.implementation == Impl::Shogi {
+        Factory::init();
+    }
+
     print!("{}: ", input);
     if args.verbose {
         let mut pos = Position::new();

@@ -10,7 +10,7 @@ pub(crate) trait CalculateResult: Position {
     fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<Self::M>, usize);
 }
 
-#[derive(Clone, Copy, Debug, ArgEnum)]
+#[derive(Clone, Copy, Debug, ArgEnum, PartialEq, Eq)]
 pub enum Impl {
     Shogi,
     Yasai,
@@ -90,9 +90,12 @@ fn search_all_mates<P, T>(
 mod tests {
     use super::solve;
     use crate::Impl;
+    use shogi::bitboard::Factory;
 
     #[test]
     fn solve_mates() {
+        Factory::init();
+
         // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/
         let test_cases = vec![
             // head -10 mate3.sfen
@@ -144,6 +147,8 @@ mod tests {
 
     #[test]
     fn ghi_problems() {
+        Factory::init();
+
         let test_cases = vec![
             "ln1gkg1nl/6+P2/2sppps1p/2p3p2/p8/P1P1P3P/2NP1PP2/3s1KSR1/L1+b2G1NL w R2Pbgp 42", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:1
             "3Bp2n1/5+R2+B/p2p1GSp1/8p/Pn5l1/1n2SNP2/2pPPS1Pk/1P1SK1G2/L1G1G4 b RL3Pl3p 131", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate7.sfen:71
@@ -164,6 +169,8 @@ mod tests {
 
     #[test]
     fn other_problems() {
+        Factory::init();
+
         let test_cases = vec![
             "ln1g3k1/5G2l/1+LspSp2p/2p1S2p1/2r3p2/p3P4/1P+BP1P+b1P/2GS5/L2K1G3 b NPr2n5p 79", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:569
         ];
@@ -182,6 +189,8 @@ mod tests {
 
     #[test]
     fn 無駄合駒() {
+        Factory::init();
+
         let test_cases = vec![
             "7nl/5B1k1/6Ppp/5+R3/9/9/9/9/9 b Srb4g3s3n3l15p 1", // issues/5,
         ];

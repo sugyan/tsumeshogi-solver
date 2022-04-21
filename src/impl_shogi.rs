@@ -1,7 +1,7 @@
 use crate::CalculateResult;
 use dfpn_solver::Node;
 use dfpn_solver::Position as _;
-use shogi::{bitboard::Factory, Color, Move, MoveError, Piece, PieceType, Position, Square};
+use shogi::{Color, Move, MoveError, Piece, PieceType, Position, Square};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
@@ -52,8 +52,6 @@ impl ShogiPosition {
 
 impl From<&str> for ShogiPosition {
     fn from(sfen: &str) -> Self {
-        Factory::init();
-
         let mut pos = Position::new();
         pos.set_sfen(sfen).expect("failed to set sfen");
         ShogiPosition(pos)
