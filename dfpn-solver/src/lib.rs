@@ -1,9 +1,10 @@
+mod default_solver;
 pub mod impl_hashmap_table;
 pub mod impl_vec_table;
-mod solver;
+pub mod solve;
 mod types;
 
-pub use solver::*;
+pub use default_solver::*;
 pub use types::*;
 
 type U = u32;

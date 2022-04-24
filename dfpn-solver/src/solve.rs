@@ -1,32 +1,29 @@
-use crate::impl_hashmap_table::HashMapTable;
-use crate::types::{Node, Table, DFPN};
-use crate::{Position, INF, U};
-
-pub struct Solver<P, T = HashMapTable> {
-    pub pos: P,
-    pub table: T,
-}
-
-impl<P, T> Solver<P, T>
-where
-    P: Position,
-    T: Table,
-{
-    pub fn new(pos: P) -> Self {
-        Self {
-            pos,
-            table: T::default(),
-        }
-    }
-}
+use crate::{Node, Position, Table, INF, U};
 
 // 「df-pnアルゴリズムの詰将棋を解くプログラムへの応用」
 // https://ci.nii.ac.jp/naid/110002726401
-impl<P, T> Solver<P, T>
+pub trait Solve<P, T>
 where
     P: Position,
     T: Table,
 {
+    fn hash_key(&self) -> u64;
+    fn generate_legal_moves(&mut self, node: Node) -> Vec<(P::M, u64)>;
+    fn do_move(&mut self, m: P::M);
+    fn undo_move(&mut self, m: P::M);
+    // ハッシュを引く (本当は優越関係が使える)
+    fn look_up_hash(&self, key: &u64) -> (U, U);
+    // ハッシュに記録
+    fn put_in_hash(&mut self, key: u64, value: (U, U));
+
+    // ルートでの反復深化
+    fn dfpn(&mut self) {
+        let hash = self.hash_key();
+        let (pn, dn) = self.mid(hash, INF - 1, INF - 1, Node::Or);
+        if pn != INF && dn != INF {
+            self.mid(hash, INF, INF, Node::Or);
+        }
+    }
     // ノード n の展開
     fn mid(&mut self, hash: u64, phi: U, delta: U, node: Node) -> (U, U) {
         // 1. ハッシュを引く
@@ -38,7 +35,7 @@ where
             };
         }
         // 2. 合法手の生成
-        let children = self.pos.generate_legal_moves(node);
+        let children = self.generate_legal_moves(node);
         if children.is_empty() {
             // ?
             self.put_in_hash(hash, (INF, 0));
@@ -79,9 +76,9 @@ where
                 phi.min(delta_2.saturating_add(1))
             };
             let (m, h) = best.expect("best move");
-            self.pos.do_move(m);
+            self.do_move(m);
             self.mid(h, phi_n_c, delta_n_c, !node);
-            self.pos.undo_move(m);
+            self.undo_move(m);
         }
     }
     // 子ノードの選択
@@ -105,14 +102,6 @@ where
         }
         (best, phi_c.expect("phi_c"), delta_c, delta_2)
     }
-    // ハッシュを引く (本当は優越関係が使える)
-    fn look_up_hash(&self, key: &u64) -> (U, U) {
-        self.table.look_up_hash(key)
-    }
-    // ハッシュに記録
-    fn put_in_hash(&mut self, key: u64, value: (U, U)) {
-        self.table.put_in_hash(key, value);
-    }
     // n の子ノード の δ の最小を計算
     fn min_delta(&mut self, children: &[(P::M, u64)]) -> U {
         let mut min = INF;
@@ -130,20 +119,5 @@ where
             sum = sum.saturating_add(p);
         }
         sum
-    }
-}
-
-impl<P, T> DFPN<P, T> for Solver<P, T>
-where
-    P: Position,
-    T: Table,
-{
-    // ルートでの反復深化
-    fn dfpn(&mut self) {
-        let hash = self.pos.hash_key();
-        let (pn, dn) = self.mid(hash, INF - 1, INF - 1, Node::Or);
-        if pn != INF && dn != INF {
-            self.mid(hash, INF, INF, Node::Or);
-        }
     }
 }

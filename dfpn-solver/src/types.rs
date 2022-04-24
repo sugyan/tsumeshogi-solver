@@ -31,11 +31,3 @@ pub trait Table: Default {
     fn look_up_hash(&self, key: &u64) -> (U, U);
     fn put_in_hash(&mut self, key: u64, value: (U, U));
 }
-
-pub trait DFPN<P, T>
-where
-    P: Position,
-    T: Table,
-{
-    fn dfpn(&mut self);
-}

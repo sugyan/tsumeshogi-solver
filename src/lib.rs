@@ -3,7 +3,8 @@ mod backend;
 pub use backend::shogi::ShogiPosition;
 pub use backend::yasai::YasaiPosition;
 use clap::ArgEnum;
-use dfpn_solver::{impl_hashmap_table::HashMapTable, Node, Position, Solver, Table, DFPN, INF};
+use dfpn_solver::solve::Solve;
+use dfpn_solver::{DefaultSolver, Node, Position, INF};
 use std::collections::HashSet;
 
 pub(crate) trait CalculateResult: Position {
@@ -33,13 +34,11 @@ fn solve_impl<P>(pos: P) -> Vec<String>
 where
     P: CalculateResult,
 {
-    let mut solver = Solver::<_, HashMapTable>::new(pos);
+    let mut solver: DefaultSolver<P> = DefaultSolver::new(pos);
     solver.dfpn();
-    let (mut pos, table) = (solver.pos, solver.table);
     let mut solutions = Vec::new();
     search_all_mates(
-        &mut pos,
-        &table,
+        &mut solver,
         &mut Vec::new(),
         &mut HashSet::new(),
         &mut solutions,
@@ -51,35 +50,33 @@ where
         .map_or(Vec::new(), |(moves, _)| moves.clone())
 }
 
-fn search_all_mates<P, T>(
-    pos: &mut P,
-    table: &T,
+fn search_all_mates<P>(
+    solver: &mut DefaultSolver<P>,
     moves: &mut Vec<P::M>,
     hashes: &mut HashSet<u64>,
     solutions: &mut Vec<(Vec<String>, usize)>,
 ) where
     P: CalculateResult,
-    T: Table,
 {
     let (node, mate_pd) = if moves.len() & 1 == 0 {
         (Node::Or, (INF, 0))
     } else {
         (Node::And, (0, INF))
     };
-    let mate_moves = pos
+    let mate_moves = solver
         .generate_legal_moves(node)
         .into_iter()
-        .filter(|(_, h)| !hashes.contains(h) && table.look_up_hash(h) == mate_pd)
+        .filter(|(_, h)| !hashes.contains(h) && solver.look_up_hash(h) == mate_pd)
         .collect::<Vec<_>>();
     if node == Node::And && mate_moves.is_empty() {
-        solutions.push(pos.calculate_result_and_score(moves));
+        solutions.push(solver.pos.calculate_result_and_score(moves));
     } else {
         for &(m, h) in &mate_moves {
             moves.push(m);
             hashes.insert(h);
-            pos.do_move(m);
-            search_all_mates(pos, table, moves, hashes, solutions);
-            pos.undo_move(m);
+            solver.do_move(m);
+            search_all_mates(solver, moves, hashes, solutions);
+            solver.undo_move(m);
             moves.pop();
             hashes.remove(&h);
         }
