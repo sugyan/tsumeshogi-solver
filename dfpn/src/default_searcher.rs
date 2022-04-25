@@ -1,13 +1,13 @@
 use crate::impl_hashmap_table::HashMapTable;
-use crate::solve::Solve;
+use crate::search::Search;
 use crate::{Node, Position, Table, U};
 
-pub struct DefaultSolver<P, T = HashMapTable> {
+pub struct DefaultSearcher<P, T = HashMapTable> {
     pub pos: P,
     table: T,
 }
 
-impl<P, T> DefaultSolver<P, T>
+impl<P, T> DefaultSearcher<P, T>
 where
     P: Position,
     T: Table,
@@ -20,7 +20,7 @@ where
     }
 }
 
-impl<P, T> Solve<P, T> for DefaultSolver<P, T>
+impl<P, T> Search<P, T> for DefaultSearcher<P, T>
 where
     P: Position,
     T: Table,

@@ -3,8 +3,8 @@ mod backend;
 pub use backend::shogi::ShogiPosition;
 pub use backend::yasai::YasaiPosition;
 use clap::ArgEnum;
-use dfpn_solver::solve::Solve;
-use dfpn_solver::{DefaultSolver, Node, Position, INF};
+use dfpn::search::Search;
+use dfpn::{DefaultSearcher, Node, Position, INF};
 use std::collections::HashSet;
 
 pub(crate) trait CalculateResult: Position {
@@ -34,11 +34,11 @@ fn solve_impl<P>(pos: P) -> Vec<String>
 where
     P: CalculateResult,
 {
-    let mut solver: DefaultSolver<P> = DefaultSolver::new(pos);
-    solver.dfpn();
+    let mut searcher: DefaultSearcher<P> = DefaultSearcher::new(pos);
+    searcher.dfpn_search();
     let mut solutions = Vec::new();
     search_all_mates(
-        &mut solver,
+        &mut searcher,
         &mut Vec::new(),
         &mut HashSet::new(),
         &mut solutions,
@@ -51,7 +51,7 @@ where
 }
 
 fn search_all_mates<P>(
-    solver: &mut DefaultSolver<P>,
+    searcher: &mut DefaultSearcher<P>,
     moves: &mut Vec<P::M>,
     hashes: &mut HashSet<u64>,
     solutions: &mut Vec<(Vec<String>, usize)>,
@@ -63,20 +63,20 @@ fn search_all_mates<P>(
     } else {
         (Node::And, (0, INF))
     };
-    let mate_moves = solver
+    let mate_moves = searcher
         .generate_legal_moves(node)
         .into_iter()
-        .filter(|(_, h)| !hashes.contains(h) && solver.look_up_hash(h) == mate_pd)
+        .filter(|(_, h)| !hashes.contains(h) && searcher.look_up_hash(h) == mate_pd)
         .collect::<Vec<_>>();
     if node == Node::And && mate_moves.is_empty() {
-        solutions.push(solver.pos.calculate_result_and_score(moves));
+        solutions.push(searcher.pos.calculate_result_and_score(moves));
     } else {
         for &(m, h) in &mate_moves {
             moves.push(m);
             hashes.insert(h);
-            solver.do_move(m);
-            search_all_mates(solver, moves, hashes, solutions);
-            solver.undo_move(m);
+            searcher.do_move(m);
+            search_all_mates(searcher, moves, hashes, solutions);
+            searcher.undo_move(m);
             moves.pop();
             hashes.remove(&h);
         }

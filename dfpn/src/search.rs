@@ -2,7 +2,7 @@ use crate::{Node, Position, Table, INF, U};
 
 // 「df-pnアルゴリズムの詰将棋を解くプログラムへの応用」
 // https://ci.nii.ac.jp/naid/110002726401
-pub trait Solve<P, T>
+pub trait Search<P, T>
 where
     P: Position,
     T: Table,
@@ -17,7 +17,7 @@ where
     fn put_in_hash(&mut self, key: u64, value: (U, U));
 
     // ルートでの反復深化
-    fn dfpn(&mut self) {
+    fn dfpn_search(&mut self) {
         let hash = self.hash_key();
         let (pn, dn) = self.mid(hash, INF - 1, INF - 1, Node::Or);
         if pn != INF && dn != INF {

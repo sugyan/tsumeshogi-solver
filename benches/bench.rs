@@ -1,8 +1,8 @@
 #![feature(test)]
 extern crate test;
-use dfpn_solver::solve::Solve;
-use dfpn_solver::DefaultSolver;
-use dfpn_solver::{impl_hashmap_table::HashMapTable, impl_vec_table::VecTable};
+use dfpn::search::Search;
+use dfpn::DefaultSearcher;
+use dfpn::{impl_hashmap_table::HashMapTable, impl_vec_table::VecTable};
 use shogi::bitboard::Factory;
 use tsumeshogi_solver::{ShogiPosition, YasaiPosition};
 
@@ -40,9 +40,9 @@ fn test_cases() -> Vec<String> {
 fn bench_yasai_hashmap(b: &mut test::Bencher) {
     b.iter(|| {
         for sfen in test_cases() {
-            let mut solver =
-                DefaultSolver::<_, HashMapTable>::new(YasaiPosition::from(sfen.as_str()));
-            solver.dfpn();
+            let mut searcher =
+                DefaultSearcher::<_, HashMapTable>::new(YasaiPosition::from(sfen.as_str()));
+            searcher.dfpn_search();
         }
     })
 }
@@ -51,8 +51,9 @@ fn bench_yasai_hashmap(b: &mut test::Bencher) {
 fn bench_yasai_vec(b: &mut test::Bencher) {
     b.iter(|| {
         for sfen in test_cases() {
-            let mut solver = DefaultSolver::<_, VecTable>::new(YasaiPosition::from(sfen.as_str()));
-            solver.dfpn();
+            let mut searcher =
+                DefaultSearcher::<_, VecTable>::new(YasaiPosition::from(sfen.as_str()));
+            searcher.dfpn_search();
         }
     })
 }
@@ -63,9 +64,9 @@ fn bench_shogi_hashmap(b: &mut test::Bencher) {
 
     b.iter(|| {
         for sfen in test_cases() {
-            let mut solver =
-                DefaultSolver::<_, HashMapTable>::new(ShogiPosition::from(sfen.as_str()));
-            solver.dfpn();
+            let mut searcher =
+                DefaultSearcher::<_, HashMapTable>::new(ShogiPosition::from(sfen.as_str()));
+            searcher.dfpn_search();
         }
     })
 }
@@ -76,8 +77,9 @@ fn bench_shogi_vec(b: &mut test::Bencher) {
 
     b.iter(|| {
         for sfen in test_cases() {
-            let mut solver = DefaultSolver::<_, VecTable>::new(ShogiPosition::from(sfen.as_str()));
-            solver.dfpn();
+            let mut searcher =
+                DefaultSearcher::<_, VecTable>::new(ShogiPosition::from(sfen.as_str()));
+            searcher.dfpn_search();
         }
     })
 }

@@ -1,5 +1,5 @@
 use crate::CalculateResult;
-use dfpn_solver::Node;
+use dfpn::Node;
 use yasai::{Move, MoveType, PieceType, Position};
 
 pub struct YasaiPosition(Position);
@@ -64,7 +64,7 @@ impl From<&str> for YasaiPosition {
     }
 }
 
-impl dfpn_solver::Position for YasaiPosition {
+impl dfpn::Position for YasaiPosition {
     type M = Move;
 
     fn hash_key(&self) -> u64 {

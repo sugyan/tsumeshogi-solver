@@ -102,8 +102,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "dfpn-solver"
-version = "0.2.0"
+name = "dfpn"
+version = "0.3.0"
 
 [[package]]
 name = "either"
@@ -460,7 +460,7 @@ version = "0.4.0"
 dependencies = [
  "clap",
  "csa",
- "dfpn-solver",
+ "dfpn",
  "shogi",
  "shogi-converter",
  "thiserror",

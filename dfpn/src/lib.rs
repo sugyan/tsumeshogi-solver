@@ -1,10 +1,10 @@
-mod default_solver;
+mod default_searcher;
 pub mod impl_hashmap_table;
 pub mod impl_vec_table;
-pub mod solve;
+pub mod search;
 mod types;
 
-pub use default_solver::*;
+pub use default_searcher::*;
 pub use types::*;
 
 type U = u32;

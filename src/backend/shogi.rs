@@ -1,6 +1,5 @@
 use crate::CalculateResult;
-use dfpn_solver::Node;
-use dfpn_solver::Position as _;
+use dfpn::{Node, Position as _};
 use shogi::{Color, Move, MoveError, Piece, PieceType, Position, Square};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -58,7 +57,7 @@ impl From<&str> for ShogiPosition {
     }
 }
 
-impl dfpn_solver::Position for ShogiPosition {
+impl dfpn::Position for ShogiPosition {
     type M = Move;
 
     fn hash_key(&self) -> u64 {
@@ -66,7 +65,7 @@ impl dfpn_solver::Position for ShogiPosition {
         self.hash(&mut s);
         s.finish()
     }
-    fn generate_legal_moves(&mut self, node: dfpn_solver::Node) -> Vec<(Self::M, u64)> {
+    fn generate_legal_moves(&mut self, node: dfpn::Node) -> Vec<(Self::M, u64)> {
         let mut moves = Vec::new();
         // normal moves
         for from in *self.0.player_bb(self.0.side_to_move()) {

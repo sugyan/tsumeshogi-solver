@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dfpn-solver = { path = "./dfpn-solver" }
+dfpn = { path = "./dfpn" }
 shogi-converter = { path = "./shogi-converter" }
 csa = "1.0.1"
 clap = { version = "3.1.1", features = ["derive"] }
