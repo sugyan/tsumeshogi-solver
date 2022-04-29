@@ -4,8 +4,10 @@ pub use backend::shogi::ShogiPosition;
 pub use backend::yasai::YasaiPosition;
 use clap::ArgEnum;
 use dfpn::search::Search;
-use dfpn::{DefaultSearcher, Node, Position, INF};
+use dfpn::{Node, Position, INF};
+use dfpn_extended::{CancelableSearcher, CanceledError};
 use std::collections::HashSet;
+use std::time::Duration;
 
 pub(crate) trait CalculateResult: Position {
     fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<String>, usize);
@@ -23,35 +25,40 @@ impl Backend {
     }
 }
 
-pub fn solve(sfen: &str, backend: Backend) -> Vec<String> {
+pub fn solve(
+    sfen: &str,
+    backend: Backend,
+    timeout: Option<Duration>,
+) -> Result<Vec<String>, CanceledError> {
     match backend {
-        Backend::Shogi => solve_impl(ShogiPosition::from(sfen)),
-        Backend::Yasai => solve_impl(YasaiPosition::from(sfen)),
+        Backend::Shogi => solve_impl(ShogiPosition::from(sfen), timeout),
+        Backend::Yasai => solve_impl(YasaiPosition::from(sfen), timeout),
     }
 }
 
-fn solve_impl<P>(pos: P) -> Vec<String>
+fn solve_impl<P>(pos: P, timeout: Option<Duration>) -> Result<Vec<String>, CanceledError>
 where
     P: CalculateResult,
 {
-    let mut searcher: DefaultSearcher<P> = DefaultSearcher::new(pos);
-    searcher.dfpn_search();
-    let mut solutions = Vec::new();
-    search_all_mates(
-        &mut searcher,
-        &mut Vec::new(),
-        &mut HashSet::new(),
-        &mut solutions,
-    );
-    solutions.sort_by_cached_key(|&(_, score)| score);
-    solutions.dedup();
-    solutions
-        .last()
-        .map_or(Vec::new(), |(moves, _)| moves.clone())
+    let mut searcher: CancelableSearcher<P> = CancelableSearcher::new(pos, timeout);
+    searcher.dfpn_search().map(|_| {
+        let mut solutions = Vec::new();
+        search_all_mates(
+            &mut searcher,
+            &mut Vec::new(),
+            &mut HashSet::new(),
+            &mut solutions,
+        );
+        solutions.sort_by_cached_key(|&(_, score)| score);
+        solutions.dedup();
+        solutions
+            .last()
+            .map_or(Vec::new(), |(moves, _)| moves.clone())
+    })
 }
 
 fn search_all_mates<P>(
-    searcher: &mut DefaultSearcher<P>,
+    searcher: &mut CancelableSearcher<P>,
     moves: &mut Vec<P::M>,
     hashes: &mut HashSet<u64>,
     solutions: &mut Vec<(Vec<String>, usize)>,
@@ -88,6 +95,7 @@ mod tests {
     use super::solve;
     use crate::Backend;
     use shogi::bitboard::Factory;
+    use std::time::Duration;
 
     #[test]
     fn solve_mates() {
@@ -131,13 +139,19 @@ mod tests {
         ];
         for backend in Backend::all() {
             for (i, &sfen) in test_cases.iter().enumerate() {
-                let ret = solve(sfen, backend);
-                assert!(
-                    ret.len() % 2 == 1,
-                    "failed to solve #{}, by backend {:?}",
-                    i,
-                    backend
-                );
+                match solve(sfen, backend, Some(Duration::from_secs(5))) {
+                    Ok(ret) => {
+                        assert!(
+                            ret.len() % 2 == 1,
+                            "failed to solve #{}, by backend {:?}",
+                            i,
+                            backend
+                        );
+                    }
+                    Err(e) => {
+                        panic!("canceled #{}, by backend {:?}: {}", i, backend, e);
+                    }
+                }
             }
         }
     }
@@ -153,13 +167,19 @@ mod tests {
         ];
         for backend in Backend::all() {
             for (i, &sfen) in test_cases.iter().enumerate() {
-                let ret = solve(sfen, backend);
-                assert!(
-                    ret.len() % 2 == 1,
-                    "failed to solve #{}, by backend {:?}",
-                    i,
-                    backend
-                );
+                match solve(sfen, backend, Some(Duration::from_secs(5))) {
+                    Ok(ret) => {
+                        assert!(
+                            ret.len() % 2 == 1,
+                            "failed to solve #{}, by backend {:?}",
+                            i,
+                            backend
+                        );
+                    }
+                    Err(e) => {
+                        panic!("canceled #{}, by backend {:?}: {}", i, backend, e);
+                    }
+                }
             }
         }
     }
@@ -173,13 +193,19 @@ mod tests {
         ];
         for backend in Backend::all() {
             for (i, &sfen) in test_cases.iter().enumerate() {
-                let ret = solve(sfen, backend);
-                assert!(
-                    ret.len() % 2 == 1,
-                    "failed to solve #{}, by backend {:?}",
-                    i,
-                    backend
-                );
+                match solve(sfen, backend, Some(Duration::from_secs(5))) {
+                    Ok(ret) => {
+                        assert!(
+                            ret.len() % 2 == 1,
+                            "failed to solve #{}, by backend {:?}",
+                            i,
+                            backend
+                        );
+                    }
+                    Err(e) => {
+                        panic!("canceled #{}, by backend {:?}: {}", i, backend, e);
+                    }
+                }
             }
         }
     }
@@ -193,13 +219,19 @@ mod tests {
         ];
         for backend in Backend::all() {
             for (i, &sfen) in test_cases.iter().enumerate() {
-                let ret = solve(sfen, backend);
-                assert!(
-                    ret.len() % 2 == 1,
-                    "failed to solve #{}, by backend {:?}",
-                    i,
-                    backend
-                );
+                match solve(sfen, backend, Some(Duration::from_secs(5))) {
+                    Ok(ret) => {
+                        assert!(
+                            ret.len() % 2 == 1,
+                            "failed to solve #{}, by backend {:?}",
+                            i,
+                            backend
+                        );
+                    }
+                    Err(e) => {
+                        panic!("canceled #{}, by backend {:?}: {}", i, backend, e);
+                    }
+                }
             }
         }
     }
@@ -213,13 +245,19 @@ mod tests {
         ];
         for backend in Backend::all() {
             for (i, &sfen) in test_cases.iter().enumerate() {
-                let ret = solve(sfen, backend);
-                assert!(
-                    ret.is_empty(),
-                    "failed to solve #{}, by backend {:?}",
-                    i,
-                    backend
-                );
+                match solve(sfen, backend, Some(Duration::from_secs(1))) {
+                    Ok(ret) => {
+                        assert!(
+                            ret.is_empty(),
+                            "failed to solve #{}, by backend {:?}",
+                            i,
+                            backend
+                        );
+                    }
+                    Err(e) => {
+                        panic!("canceled #{}, by backend {:?}: {}", i, backend, e);
+                    }
+                }
             }
         }
     }

@@ -37,11 +37,9 @@ where
     fn undo_move(&mut self, m: P::M) {
         self.pos.undo_move(m)
     }
-    // ハッシュを引く (本当は優越関係が使える)
     fn look_up_hash(&self, key: &u64) -> (U, U) {
         self.table.look_up_hash(key)
     }
-    // ハッシュに記録
     fn put_in_hash(&mut self, key: u64, value: (U, U)) {
         self.table.put_in_hash(key, value)
     }

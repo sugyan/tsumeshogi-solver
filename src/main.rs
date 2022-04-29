@@ -3,7 +3,9 @@ use csa::{parse_csa, CsaError};
 use shogi::{bitboard::Factory, Position};
 use shogi_converter::kif_converter::{parse_kif, KifError};
 use shogi_converter::Record;
-use std::{fs::File, io::BufRead, io::Read, str, time::Instant};
+use std::io::{BufRead, Read};
+use std::time::{Duration, Instant};
+use std::{fs::File, str};
 use thiserror::Error;
 use tsumeshogi_solver::{solve, Backend};
 
@@ -53,6 +55,9 @@ struct Args {
     /// Input format
     #[clap(short, long, arg_enum, value_name = "FORMAT", default_value_t = Format::Sfen)]
     format: Format,
+    /// Time limit (seconds)
+    #[clap(short, long)]
+    timeout: Option<f32>,
     /// Backend implementation
     #[clap(long = "backend", arg_enum, value_name = "BACKEND", default_value_t = Backend::Yasai)]
     backend: Backend,
@@ -157,9 +162,15 @@ fn run(sfen: &str, input: &str, args: &Args) {
         println!();
     }
     let now = Instant::now();
-    println!("{:?}", solve(sfen, args.backend));
-    let elapsed = now.elapsed();
+    println!(
+        "{:?}",
+        solve(
+            sfen,
+            args.backend,
+            args.timeout.map(Duration::from_secs_f32),
+        )
+    );
     if args.verbose {
-        println!("elapsed: {:?}", elapsed);
+        println!("elapsed: {:?}", now.elapsed());
     }
 }

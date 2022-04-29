@@ -7,5 +7,5 @@ mod types;
 pub use default_searcher::*;
 pub use types::*;
 
-type U = u32;
+pub type U = u32;
 pub const INF: U = U::MAX;

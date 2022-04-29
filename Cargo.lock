@@ -106,6 +106,14 @@ name = "dfpn"
 version = "0.3.0"
 
 [[package]]
+name = "dfpn-extended"
+version = "0.1.0"
+dependencies = [
+ "dfpn",
+ "thiserror",
+]
+
+[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -461,6 +469,7 @@ dependencies = [
  "clap",
  "csa",
  "dfpn",
+ "dfpn-extended",
  "shogi",
  "shogi-converter",
  "thiserror",

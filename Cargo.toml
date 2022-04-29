@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 dfpn = { path = "./dfpn" }
+dfpn-extended = { path = "./dfpn-extended" }
 shogi-converter = { path = "./shogi-converter" }
 csa = "1.0.1"
 clap = { version = "3.1.1", features = ["derive"] }
