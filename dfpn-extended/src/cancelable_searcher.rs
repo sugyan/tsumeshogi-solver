@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn timeout() {
-        let mut searcher =
+        let mut searcher: CancelableSearcher<_> =
             CancelableSearcher::new(InfinityPosition(1), Some(Duration::from_millis(10)));
         match searcher.dfpn_search() {
             Err(CanceledError::Timeout) => {}
