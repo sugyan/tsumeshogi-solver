@@ -55,7 +55,7 @@ struct Args {
     /// Input format
     #[clap(short, long, arg_enum, value_name = "FORMAT", default_value_t = Format::Sfen)]
     format: Format,
-    /// Time limit (seconds)
+    /// Time limit to solve (seconds)
     #[clap(short, long)]
     timeout: Option<f32>,
     /// Backend implementation

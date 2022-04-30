@@ -43,13 +43,13 @@ Hand (Black):
 Hand (White): g4 s4 n4 l3 p14
 Ply: 1
 
-["+7572NY", "-0086KE", "+7673RY"]
+Ok(["+7572NY", "-0086KE", "+7673RY"])
 ```
 
 ### Run
 
 ```
-Tsumeshogi Solver 0.4.0
+Tsumeshogi Solver 0.5.0
 
 USAGE:
     tsumeshogi-solver [OPTIONS] <INPUTS>...
@@ -62,6 +62,7 @@ OPTIONS:
                                yasai]
     -f, --format <FORMAT>      Input format [default: sfen] [possible values: sfen, csa, kif]
     -h, --help                 Print help information
+    -t, --timeout <TIMEOUT>    Time limit to solve (seconds)
     -v, --verbose              Verbose mode
     -V, --version              Print version information
 ```
