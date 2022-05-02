@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 thiserror = "1.0.30"
+instant = { version = "0.1" }
 dfpn = { path = "../dfpn" }

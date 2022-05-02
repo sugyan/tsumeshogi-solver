@@ -2,7 +2,8 @@ use crate::SearchOrCancel;
 use dfpn::impl_hashmap_table::HashMapTable;
 use dfpn::search::Search;
 use dfpn::{Node, Position, Table, U};
-use std::time::{Duration, Instant};
+use instant::Instant;
+use std::time::Duration;
 use thiserror::Error;
 
 #[derive(Error, Clone, Copy, Debug)]
