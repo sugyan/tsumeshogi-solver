@@ -1,4 +1,4 @@
-use crate::CalculateResult;
+use crate::solver::CalculateResult;
 use dfpn::{Node, Position as _};
 use shogi::{Color, Move, MoveError, Piece, PieceType, Position, Square};
 use std::collections::hash_map::DefaultHasher;

@@ -1,4 +1,4 @@
-use crate::CalculateResult;
+use crate::solver::CalculateResult;
 use dfpn::Node;
 use yasai::{Move, MoveType, PieceType, Position};
 
