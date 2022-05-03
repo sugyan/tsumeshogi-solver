@@ -49,7 +49,7 @@ Ok(["+7572NY", "-0086KE", "+7673RY"])
 ### Run
 
 ```
-Tsumeshogi Solver 0.5.0
+Tsumeshogi Solver 0.5.2
 
 USAGE:
     tsumeshogi-solver [OPTIONS] <INPUTS>...
