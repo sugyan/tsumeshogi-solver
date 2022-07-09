@@ -398,6 +398,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "shogi_core"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0c99c07667dfb58bac4cd9156e3d1ead9f3c78223a282301bc51f49b4efcf2d"
+
+[[package]]
+name = "shogi_usi_parser"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f39adab2055cf0bc5c9523b237e14ad9aba385bc7ebf90c9385876a48cef8c62"
+dependencies = [
+ "shogi_core",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -482,6 +497,8 @@ dependencies = [
  "dfpn-extended",
  "shogi",
  "shogi-converter",
+ "shogi_core",
+ "shogi_usi_parser",
  "thiserror",
  "yasai",
 ]
@@ -543,11 +560,12 @@ checksum = "85e60b0d1b5f99db2556934e21937020776a5d31520bf169e851ac44e6420214"
 
 [[package]]
 name = "yasai"
-version = "0.2.0"
-source = "git+https://github.com/sugyan/yasai?tag=0.1.3#ed6cb8507d23e79a775c7db51abbbfedd93a7e34"
+version = "0.5.0"
+source = "git+https://github.com/sugyan/yasai?tag=0.5.0#ef8e5cb81fdd5b216432d6e09d67772ddf27207e"
 dependencies = [
  "arrayvec 0.7.2",
- "bitintr",
+ "cfg-if",
  "once_cell",
  "rand",
+ "shogi_core",
 ]
