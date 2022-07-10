@@ -3,8 +3,7 @@ extern crate test;
 use dfpn::search::Search;
 use dfpn::DefaultSearcher;
 use dfpn::{impl_hashmap_table::HashMapTable, impl_vec_table::VecTable};
-use shogi::bitboard::Factory;
-use tsumeshogi_solver::backend::{ShogiPosition, YasaiPosition};
+use tsumeshogi_solver::backend::YasaiPosition;
 
 fn test_cases() -> Vec<String> {
     vec![
@@ -53,32 +52,6 @@ fn bench_yasai_vec(b: &mut test::Bencher) {
         for sfen in test_cases() {
             let mut searcher =
                 DefaultSearcher::<_, VecTable>::new(YasaiPosition::from(sfen.as_str()));
-            searcher.dfpn_search();
-        }
-    })
-}
-
-#[bench]
-fn bench_shogi_hashmap(b: &mut test::Bencher) {
-    Factory::init();
-
-    b.iter(|| {
-        for sfen in test_cases() {
-            let mut searcher =
-                DefaultSearcher::<_, HashMapTable>::new(ShogiPosition::from(sfen.as_str()));
-            searcher.dfpn_search();
-        }
-    })
-}
-
-#[bench]
-fn bench_shogi_vec(b: &mut test::Bencher) {
-    Factory::init();
-
-    b.iter(|| {
-        for sfen in test_cases() {
-            let mut searcher =
-                DefaultSearcher::<_, VecTable>::new(ShogiPosition::from(sfen.as_str()));
             searcher.dfpn_search();
         }
     })

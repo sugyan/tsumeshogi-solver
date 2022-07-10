@@ -1,4 +1,4 @@
 pub mod backend;
 mod solver;
 
-pub use solver::{solve, Backend};
+pub use solver::solve;

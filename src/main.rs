@@ -1,13 +1,13 @@
 use clap::{ArgEnum, Parser};
 use csa::{parse_csa, CsaError};
-use shogi::{bitboard::Factory, Position};
+use shogi::Position;
 use shogi_converter::kif_converter::{parse_kif, KifError};
 use shogi_converter::Record;
 use std::io::{BufRead, Read};
 use std::time::{Duration, Instant};
 use std::{fs::File, str};
 use thiserror::Error;
-use tsumeshogi_solver::{solve, Backend};
+use tsumeshogi_solver::solve;
 
 #[derive(Error, Debug)]
 enum ParseError {
@@ -58,9 +58,6 @@ struct Args {
     /// Time limit to solve (seconds)
     #[clap(short, long)]
     timeout: Option<f32>,
-    /// Backend implementation
-    #[clap(long = "backend", arg_enum, value_name = "BACKEND", default_value_t = Backend::Yasai)]
-    backend: Backend,
     /// Input files or SFEN strings
     #[clap(required(true))]
     inputs: Vec<String>,
@@ -75,9 +72,6 @@ enum Format {
 
 fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
-    if args.backend == Backend::Shogi {
-        Factory::init();
-    }
     match args.format {
         Format::Sfen => run_sfen(&args),
         Format::Csa => run_parse(CsaParser, &args),
@@ -164,11 +158,7 @@ fn run(sfen: &str, input: &str, args: &Args) {
     let now = Instant::now();
     println!(
         "{:?}",
-        solve(
-            sfen,
-            args.backend,
-            args.timeout.map(Duration::from_secs_f32),
-        )
+        solve(sfen, args.timeout.map(Duration::from_secs_f32),)
     );
     if args.verbose {
         println!("elapsed: {:?}", now.elapsed());
