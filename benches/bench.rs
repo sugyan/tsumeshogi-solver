@@ -3,6 +3,8 @@ extern crate test;
 use dfpn::search::Search;
 use dfpn::DefaultSearcher;
 use dfpn::{impl_hashmap_table::HashMapTable, impl_vec_table::VecTable};
+use shogi_core::PartialPosition;
+use shogi_usi_parser::FromUsi;
 use tsumeshogi_solver::backend::YasaiPosition;
 
 fn test_cases() -> Vec<String> {
@@ -39,8 +41,9 @@ fn test_cases() -> Vec<String> {
 fn bench_yasai_hashmap(b: &mut test::Bencher) {
     b.iter(|| {
         for sfen in test_cases() {
-            let mut searcher =
-                DefaultSearcher::<_, HashMapTable>::new(YasaiPosition::from(sfen.as_str()));
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            let mut searcher = DefaultSearcher::<_, HashMapTable>::new(YasaiPosition::from(pos));
             searcher.dfpn_search();
         }
     })
@@ -50,8 +53,9 @@ fn bench_yasai_hashmap(b: &mut test::Bencher) {
 fn bench_yasai_vec(b: &mut test::Bencher) {
     b.iter(|| {
         for sfen in test_cases() {
-            let mut searcher =
-                DefaultSearcher::<_, VecTable>::new(YasaiPosition::from(sfen.as_str()));
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            let mut searcher = DefaultSearcher::<_, VecTable>::new(YasaiPosition::from(pos));
             searcher.dfpn_search();
         }
     })

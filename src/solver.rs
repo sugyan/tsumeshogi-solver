@@ -2,6 +2,7 @@ use crate::backend::YasaiPosition;
 use dfpn::search::Search;
 use dfpn::{Node, Position, INF};
 use dfpn_extended::{CancelableSearcher, CanceledError};
+use shogi_core::PartialPosition;
 use std::collections::HashSet;
 use std::time::Duration;
 
@@ -9,8 +10,11 @@ pub(crate) trait CalculateResult: Position {
     fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<String>, usize);
 }
 
-pub fn solve(sfen: &str, timeout: Option<Duration>) -> Result<Vec<String>, CanceledError> {
-    solve_impl(YasaiPosition::from(sfen), timeout)
+pub fn solve(
+    position: PartialPosition,
+    timeout: Option<Duration>,
+) -> Result<Vec<String>, CanceledError> {
+    solve_impl(YasaiPosition::from(position), timeout)
 }
 
 fn solve_impl<P>(pos: P, timeout: Option<Duration>) -> Result<Vec<String>, CanceledError>
@@ -69,14 +73,14 @@ fn search_all_mates<P>(
 
 #[cfg(test)]
 mod tests {
+    use shogi_core::PartialPosition;
+    use shogi_usi_parser::FromUsi;
+
     use super::solve;
-    use shogi::bitboard::Factory;
     use std::time::Duration;
 
     #[test]
     fn solve_mates() {
-        Factory::init();
-
         // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/
         let test_cases = vec![
             // head -10 mate3.sfen
@@ -114,7 +118,9 @@ mod tests {
             "3g4l/+R1sg2S2/p1npk1s+Rp/2pb2p2/4g2N1/1p7/P1PP1PP1P/1P1S5/LNK2G1+lL b N3Pb2p 71",
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            match solve(sfen, Some(Duration::from_secs(5))) {
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            match solve(pos, Some(Duration::from_secs(5))) {
                 Ok(ret) => {
                     assert!(ret.len() % 2 == 1, "failed to solve #{i}");
                 }
@@ -127,15 +133,15 @@ mod tests {
 
     #[test]
     fn ghi_problems() {
-        Factory::init();
-
         let test_cases = vec![
             "ln1gkg1nl/6+P2/2sppps1p/2p3p2/p8/P1P1P3P/2NP1PP2/3s1KSR1/L1+b2G1NL w R2Pbgp 42", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:1
             "3Bp2n1/5+R2+B/p2p1GSp1/8p/Pn5l1/1n2SNP2/2pPPS1Pk/1P1SK1G2/L1G1G4 b RL3Pl3p 131", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate7.sfen:71
             "7+P1/5R1s1/6ks1/9/5L1p1/9/9/9/9 b R2b4g2s4n3l16p 1", // https://www.shogi.or.jp/tsume_shogi/everyday/20211183_1.html
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            match solve(sfen, Some(Duration::from_secs(5))) {
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            match solve(pos, Some(Duration::from_secs(5))) {
                 Ok(ret) => {
                     assert!(ret.len() % 2 == 1, "failed to solve #{i}");
                 }
@@ -148,13 +154,13 @@ mod tests {
 
     #[test]
     fn other_problems() {
-        Factory::init();
-
         let test_cases = vec![
             "ln1g3k1/5G2l/1+LspSp2p/2p1S2p1/2r3p2/p3P4/1P+BP1P+b1P/2GS5/L2K1G3 b NPr2n5p 79", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:569
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            match solve(sfen, Some(Duration::from_secs(5))) {
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            match solve(pos, Some(Duration::from_secs(5))) {
                 Ok(ret) => {
                     assert!(ret.len() % 2 == 1, "failed to solve #{i}");
                 }
@@ -167,13 +173,13 @@ mod tests {
 
     #[test]
     fn 無駄合駒() {
-        Factory::init();
-
         let test_cases = vec![
             "7nl/5B1k1/6Ppp/5+R3/9/9/9/9/9 b Srb4g3s3n3l15p 1", // issues/5,
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            match solve(sfen, Some(Duration::from_secs(5))) {
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            match solve(pos, Some(Duration::from_secs(5))) {
                 Ok(ret) => {
                     assert!(ret.len() % 2 == 1, "failed to solve #{i}");
                 }
@@ -186,13 +192,13 @@ mod tests {
 
     #[test]
     fn 不詰() {
-        Factory::init();
-
         let test_cases = vec![
             "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1", // initial position
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            match solve(sfen, Some(Duration::from_secs(1))) {
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            match solve(pos, Some(Duration::from_secs(1))) {
                 Ok(ret) => {
                     assert!(ret.is_empty(), "failed to solve #{i}");
                 }

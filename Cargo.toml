@@ -9,9 +9,8 @@ edition = "2021"
 dfpn = { path = "./dfpn" }
 dfpn-extended = { path = "./dfpn-extended" }
 shogi-converter = { path = "./shogi-converter" }
-csa = "1.0.1"
+csa = "1.0.2"
 clap = { version = "3.1.1", features = ["derive"] }
-shogi = "0.12.2"
 thiserror = "1.0.30"
 yasai = { git = "https://github.com/sugyan/yasai", tag = "0.5.0", features = ["simd"] }
 shogi_core = "0.1.4"

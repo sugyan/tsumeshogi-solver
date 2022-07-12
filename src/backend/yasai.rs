@@ -1,17 +1,13 @@
 use crate::solver::CalculateResult;
 use dfpn::Node;
 use shogi_core::{Hand, Move, PartialPosition, ToUsi};
-use shogi_usi_parser::FromUsi;
 use yasai::Position;
 
 pub struct YasaiPosition(Position);
 
-impl From<&str> for YasaiPosition {
-    fn from(sfen: &str) -> Self {
-        let s = String::from("sfen ") + sfen;
-        Self(Position::new(
-            PartialPosition::from_usi(&s).expect("failed to set sfen"),
-        ))
+impl From<PartialPosition> for YasaiPosition {
+    fn from(pos: PartialPosition) -> Self {
+        Self(Position::new(pos))
     }
 }
 
