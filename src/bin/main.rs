@@ -130,10 +130,7 @@ fn run(sfen: &str, input: &str, args: &Args) -> Result<(), ParseError> {
     let now = Instant::now();
     println!(
         "{:?}",
-        solve::<_, HashMapTable>(
-            YasaiPosition::from(pos),
-            args.timeout.map(Duration::from_secs_f32)
-        )
+        solve::<YasaiPosition, HashMapTable>(pos, args.timeout.map(Duration::from_secs_f32))
     );
     if args.verbose {
         println!("elapsed: {:?}", now.elapsed());

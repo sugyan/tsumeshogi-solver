@@ -1,9 +1,11 @@
+mod node;
 pub mod search;
 mod searcher;
-pub mod types;
+mod traits;
 
-pub use searcher::*;
-pub use types::*;
+pub use node::Node;
+pub use searcher::DefaultSearcher;
+pub use traits::*;
 
 pub type U = u32;
 pub const INF: U = U::MAX;

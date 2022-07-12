@@ -12,12 +12,10 @@ impl From<PartialPosition> for YasaiPosition {
 }
 
 impl dfpn::Position for YasaiPosition {
-    type M = Move;
-
     fn hash_key(&self) -> u64 {
         self.0.key()
     }
-    fn generate_legal_moves(&mut self, node: Node) -> Vec<(Self::M, u64)> {
+    fn generate_legal_moves(&mut self, node: Node) -> Vec<(Move, u64)> {
         let mut moves = Vec::new();
         for m in self.0.legal_moves() {
             if node == Node::And || self.0.is_check_move(m) {
@@ -28,16 +26,16 @@ impl dfpn::Position for YasaiPosition {
         }
         moves
     }
-    fn do_move(&mut self, m: Self::M) {
+    fn do_move(&mut self, m: Move) {
         self.0.do_move(m);
     }
-    fn undo_move(&mut self, m: Self::M) {
+    fn undo_move(&mut self, m: Move) {
         self.0.undo_move(m);
     }
 }
 
 impl CalculateResult for YasaiPosition {
-    fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<String>, usize) {
+    fn calculate_result_and_score(&self, moves: &[Move]) -> (Vec<String>, usize) {
         let (mut ret, mut len) = (Vec::new(), moves.len());
         let mut total_hands = Hand::all_hand_pieces()
             .filter_map(|pk| self.0.hand(self.0.side_to_move().flip()).count(pk))

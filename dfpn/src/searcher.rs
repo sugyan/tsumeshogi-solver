@@ -1,5 +1,6 @@
 use crate::search::Search;
 use crate::{Node, Position, Table, U};
+use shogi_core::Move;
 
 pub struct DefaultSearcher<P, T> {
     pub pos: P,
@@ -27,13 +28,13 @@ where
     fn hash_key(&self) -> u64 {
         self.pos.hash_key()
     }
-    fn generate_legal_moves(&mut self, node: Node) -> Vec<(P::M, u64)> {
+    fn generate_legal_moves(&mut self, node: Node) -> Vec<(Move, u64)> {
         self.pos.generate_legal_moves(node)
     }
-    fn do_move(&mut self, m: P::M) {
+    fn do_move(&mut self, m: Move) {
         self.pos.do_move(m)
     }
-    fn undo_move(&mut self, m: P::M) {
+    fn undo_move(&mut self, m: Move) {
         self.pos.undo_move(m)
     }
     fn look_up_hash(&self, key: &u64) -> (U, U) {

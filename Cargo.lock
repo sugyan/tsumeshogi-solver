@@ -80,6 +80,9 @@ dependencies = [
 [[package]]
 name = "dfpn"
 version = "0.3.0"
+dependencies = [
+ "shogi_core",
+]
 
 [[package]]
 name = "dfpn-extended"
@@ -87,6 +90,7 @@ version = "0.1.0"
 dependencies = [
  "dfpn",
  "instant",
+ "shogi_core",
  "thiserror",
 ]
 

@@ -1,19 +1,24 @@
 use dfpn::search::Search;
 use dfpn::{Node, Position, Table, INF};
 use dfpn_extended::{CancelableSearcher, CanceledError};
+use shogi_core::{Move, PartialPosition};
 use std::collections::HashSet;
 use std::time::Duration;
 
-pub trait CalculateResult: Position {
-    fn calculate_result_and_score(&mut self, moves: &[Self::M]) -> (Vec<String>, usize);
+pub trait CalculateResult {
+    fn calculate_result_and_score(&self, moves: &[Move]) -> (Vec<String>, usize);
 }
 
-pub fn solve<P, T>(position: P, timeout: Option<Duration>) -> Result<Vec<String>, CanceledError>
+pub fn solve<P, T>(
+    position: PartialPosition,
+    timeout: Option<Duration>,
+) -> Result<Vec<String>, CanceledError>
 where
-    P: CalculateResult,
+    P: Position + From<PartialPosition> + CalculateResult,
     T: Table,
 {
-    let mut searcher: CancelableSearcher<P, T> = CancelableSearcher::new(position, timeout);
+    let pos = P::from(position);
+    let mut searcher: CancelableSearcher<P, T> = CancelableSearcher::new(pos, timeout);
     searcher.dfpn_search().map(|_| {
         let mut solutions = Vec::new();
         search_all_mates(
@@ -32,11 +37,11 @@ where
 
 fn search_all_mates<P, T>(
     searcher: &mut CancelableSearcher<P, T>,
-    moves: &mut Vec<P::M>,
+    moves: &mut Vec<Move>,
     hashes: &mut HashSet<u64>,
     solutions: &mut Vec<(Vec<String>, usize)>,
 ) where
-    P: CalculateResult,
+    P: Position + CalculateResult,
     T: Table,
 {
     let (node, mate_pd) = if moves.len() & 1 == 0 {
@@ -112,10 +117,9 @@ mod tests {
             "3g4l/+R1sg2S2/p1npk1s+Rp/2pb2p2/4g2N1/1p7/P1PP1PP1P/1P1S5/LNK2G1+lL b N3Pb2p 71",
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            let pos = YasaiPosition::from(
-                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen"),
-            );
-            match solve::<_, HashMapTable>(pos, Some(Duration::from_secs(5))) {
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            match solve::<YasaiPosition, HashMapTable>(pos, Some(Duration::from_secs(5))) {
                 Ok(ret) => {
                     assert!(ret.len() % 2 == 1, "failed to solve #{i}");
                 }
@@ -134,10 +138,9 @@ mod tests {
             "7+P1/5R1s1/6ks1/9/5L1p1/9/9/9/9 b R2b4g2s4n3l16p 1", // https://www.shogi.or.jp/tsume_shogi/everyday/20211183_1.html
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            let pos = YasaiPosition::from(
-                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen"),
-            );
-            match solve::<_, HashMapTable>(pos, Some(Duration::from_secs(5))) {
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            match solve::<YasaiPosition, HashMapTable>(pos, Some(Duration::from_secs(5))) {
                 Ok(ret) => {
                     assert!(ret.len() % 2 == 1, "failed to solve #{i}");
                 }
@@ -154,10 +157,9 @@ mod tests {
             "ln1g3k1/5G2l/1+LspSp2p/2p1S2p1/2r3p2/p3P4/1P+BP1P+b1P/2GS5/L2K1G3 b NPr2n5p 79", // https://yaneuraou.yaneu.com/2020/12/25/christmas-present/ mate3.sfen:569
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            let pos = YasaiPosition::from(
-                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen"),
-            );
-            match solve::<_, HashMapTable>(pos, Some(Duration::from_secs(5))) {
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            match solve::<YasaiPosition, HashMapTable>(pos, Some(Duration::from_secs(5))) {
                 Ok(ret) => {
                     assert!(ret.len() % 2 == 1, "failed to solve #{i}");
                 }
@@ -174,10 +176,9 @@ mod tests {
             "7nl/5B1k1/6Ppp/5+R3/9/9/9/9/9 b Srb4g3s3n3l15p 1", // issues/5,
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            let pos = YasaiPosition::from(
-                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen"),
-            );
-            match solve::<_, HashMapTable>(pos, Some(Duration::from_secs(5))) {
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            match solve::<YasaiPosition, HashMapTable>(pos, Some(Duration::from_secs(5))) {
                 Ok(ret) => {
                     assert!(ret.len() % 2 == 1, "failed to solve #{i}");
                 }
@@ -194,10 +195,9 @@ mod tests {
             "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1", // initial position
         ];
         for (i, &sfen) in test_cases.iter().enumerate() {
-            let pos = YasaiPosition::from(
-                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen"),
-            );
-            match solve::<_, HashMapTable>(pos, Some(Duration::from_secs(1))) {
+            let pos =
+                PartialPosition::from_usi(&format!("sfen {sfen}")).expect("failed to parse sfen");
+            match solve::<YasaiPosition, HashMapTable>(pos, Some(Duration::from_secs(1))) {
                 Ok(ret) => {
                     assert!(ret.is_empty(), "failed to solve #{i}");
                 }
