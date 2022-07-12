@@ -1,5 +1,4 @@
 use crate::SearchOrCancel;
-use dfpn::impl_hashmap_table::HashMapTable;
 use dfpn::search::Search;
 use dfpn::{Node, Position, Table, U};
 use instant::Instant;
@@ -12,7 +11,7 @@ pub enum CanceledError {
     Timeout,
 }
 
-pub struct CancelableSearcher<P, T = HashMapTable> {
+pub struct CancelableSearcher<P, T> {
     pub pos: P,
     table: T,
     timeout: Option<Duration>,
@@ -85,6 +84,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     struct InfinityPosition(u64);
 
@@ -104,9 +104,27 @@ mod tests {
         }
     }
 
+    #[derive(Default)]
+    struct HashMapTable {
+        table: HashMap<u64, (U, U)>,
+    }
+
+    impl Table for HashMapTable {
+        fn look_up_hash(&self, key: &u64) -> (U, U) {
+            if let Some(&v) = self.table.get(key) {
+                v
+            } else {
+                (1, 1)
+            }
+        }
+        fn put_in_hash(&mut self, key: u64, value: (U, U)) {
+            self.table.insert(key, value);
+        }
+    }
+
     #[test]
     fn timeout() {
-        let mut searcher: CancelableSearcher<_> =
+        let mut searcher: CancelableSearcher<_, HashMapTable> =
             CancelableSearcher::new(InfinityPosition(1), Some(Duration::from_millis(10)));
         match searcher.dfpn_search() {
             Err(CanceledError::Timeout) => {}

@@ -1,10 +1,8 @@
-mod default_searcher;
-pub mod impl_hashmap_table;
-pub mod impl_vec_table;
 pub mod search;
-mod types;
+mod searcher;
+pub mod types;
 
-pub use default_searcher::*;
+pub use searcher::*;
 pub use types::*;
 
 pub type U = u32;

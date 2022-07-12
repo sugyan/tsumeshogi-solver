@@ -1,5 +1,4 @@
-use crate::types::Table;
-use crate::U;
+use dfpn::{Table, U};
 use std::collections::HashMap;
 
 #[derive(Default)]

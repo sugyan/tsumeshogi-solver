@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::{BufRead, Read};
 use std::time::{Duration, Instant};
 use thiserror::Error;
+use tsumeshogi_solver::implementations::{HashMapTable, YasaiPosition};
 use tsumeshogi_solver::solve;
 
 #[derive(Error, Debug)]
@@ -129,7 +130,10 @@ fn run(sfen: &str, input: &str, args: &Args) -> Result<(), ParseError> {
     let now = Instant::now();
     println!(
         "{:?}",
-        solve(pos, args.timeout.map(Duration::from_secs_f32))
+        solve::<_, HashMapTable>(
+            YasaiPosition::from(pos),
+            args.timeout.map(Duration::from_secs_f32)
+        )
     );
     if args.verbose {
         println!("elapsed: {:?}", now.elapsed());
