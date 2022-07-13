@@ -85,23 +85,48 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shogi_core::{Color, Piece, Square};
     use std::collections::HashMap;
 
     struct InfinityPosition(u64);
 
     impl Position for InfinityPosition {
-        type M = u64;
         fn hash_key(&self) -> u64 {
             self.0
         }
-        fn generate_legal_moves(&mut self, _node: Node) -> Vec<(u64, u64)> {
-            vec![(0, self.0 << 1), (1, (self.0 << 1) + 1)]
+        fn generate_legal_moves(&mut self, _node: Node) -> Vec<(Move, u64)> {
+            vec![
+                (
+                    Move::Drop {
+                        to: Square::SQ_1A,
+                        piece: Piece::B_P,
+                    },
+                    self.0 + 1,
+                ),
+                (
+                    Move::Drop {
+                        to: Square::SQ_1A,
+                        piece: Piece::W_P,
+                    },
+                    self.0 + 2,
+                ),
+            ]
         }
-        fn do_move(&mut self, m: u64) {
-            self.0 = (self.0 << 1) + m;
+        fn do_move(&mut self, m: Move) {
+            if let Move::Drop { to: _, piece } = m {
+                self.0 += match piece.color() {
+                    Color::Black => 1,
+                    Color::White => 2,
+                };
+            }
         }
-        fn undo_move(&mut self, _m: u64) {
-            self.0 >>= 1;
+        fn undo_move(&mut self, m: Move) {
+            if let Move::Drop { to: _, piece } = m {
+                self.0 -= match piece.color() {
+                    Color::Black => 1,
+                    Color::White => 2,
+                };
+            }
         }
     }
 
