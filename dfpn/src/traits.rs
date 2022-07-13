@@ -2,10 +2,12 @@ use crate::{Node, U};
 use shogi_core::Move;
 
 pub trait Position {
+    type M: Copy + Into<Move>;
+
     fn hash_key(&self) -> u64;
-    fn generate_legal_moves(&mut self, node: Node) -> Vec<(Move, u64)>;
-    fn do_move(&mut self, m: Move);
-    fn undo_move(&mut self, m: Move);
+    fn generate_legal_moves(&mut self, node: Node) -> Vec<(Self::M, u64)>;
+    fn do_move(&mut self, m: Self::M);
+    fn undo_move(&mut self, m: Self::M);
 }
 
 pub trait Table: Default {

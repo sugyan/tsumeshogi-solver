@@ -1,5 +1,4 @@
 use crate::{Node, Position, Table, INF, U};
-use shogi_core::Move;
 
 // 「df-pnアルゴリズムの詰将棋を解くプログラムへの応用」
 // https://ci.nii.ac.jp/naid/110002726401
@@ -9,9 +8,9 @@ where
     T: Table,
 {
     fn hash_key(&self) -> u64;
-    fn generate_legal_moves(&mut self, node: Node) -> Vec<(Move, u64)>;
-    fn do_move(&mut self, m: Move);
-    fn undo_move(&mut self, m: Move);
+    fn generate_legal_moves(&mut self, node: Node) -> Vec<(P::M, u64)>;
+    fn do_move(&mut self, m: P::M);
+    fn undo_move(&mut self, m: P::M);
     // ハッシュを引く (本当は優越関係が使える)
     fn look_up_hash(&self, key: &u64) -> (U, U);
     // ハッシュに記録
@@ -83,7 +82,7 @@ where
         }
     }
     // 子ノードの選択
-    fn select_child(&mut self, children: &[(Move, u64)]) -> (Option<(Move, u64)>, U, U, U) {
+    fn select_child(&mut self, children: &[(P::M, u64)]) -> (Option<(P::M, u64)>, U, U, U) {
         let (mut delta_c, mut delta_2) = (INF, INF);
         let mut best = None;
         let mut phi_c = None; // not optional?
@@ -104,7 +103,7 @@ where
         (best, phi_c.expect("phi_c"), delta_c, delta_2)
     }
     // n の子ノード の δ の最小を計算
-    fn min_delta(&mut self, children: &[(Move, u64)]) -> U {
+    fn min_delta(&mut self, children: &[(P::M, u64)]) -> U {
         let mut min = INF;
         for &(_, h) in children {
             let (_, d) = self.look_up_hash(&h);
@@ -113,7 +112,7 @@ where
         min
     }
     // nの子ノードのφの和を計算
-    fn sum_phi(&mut self, children: &[(Move, u64)]) -> U {
+    fn sum_phi(&mut self, children: &[(P::M, u64)]) -> U {
         let mut sum: U = 0;
         for &(_, h) in children {
             let (p, _) = self.look_up_hash(&h);

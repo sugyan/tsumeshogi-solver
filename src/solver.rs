@@ -6,13 +6,13 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 pub trait CalculateResult {
-    fn calculate_result_and_score(&self, moves: &[Move]) -> (Vec<String>, usize);
+    fn calculate_result_and_score(&self, moves: &[Move]) -> (Vec<Move>, usize);
 }
 
 pub fn solve<P, T>(
     position: PartialPosition,
     timeout: Option<Duration>,
-) -> Result<Vec<String>, CanceledError>
+) -> Result<Vec<Move>, CanceledError>
 where
     P: Position + From<PartialPosition> + CalculateResult,
     T: Table,
@@ -39,7 +39,7 @@ fn search_all_mates<P, T>(
     searcher: &mut CancelableSearcher<P, T>,
     moves: &mut Vec<Move>,
     hashes: &mut HashSet<u64>,
-    solutions: &mut Vec<(Vec<String>, usize)>,
+    solutions: &mut Vec<(Vec<Move>, usize)>,
 ) where
     P: Position + CalculateResult,
     T: Table,
@@ -58,7 +58,7 @@ fn search_all_mates<P, T>(
         solutions.push(searcher.pos.calculate_result_and_score(moves));
     } else {
         for &(m, h) in &mate_moves {
-            moves.push(m);
+            moves.push(m.into());
             hashes.insert(h);
             searcher.do_move(m);
             search_all_mates(searcher, moves, hashes, solutions);

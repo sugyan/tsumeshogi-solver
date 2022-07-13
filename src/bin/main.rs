@@ -2,7 +2,7 @@ use clap::{ArgEnum, Parser};
 use csa::{parse_csa, CsaError};
 use shogi_converter::kif_converter::{parse_kif, KifError};
 use shogi_converter::Record;
-use shogi_core::{Color, Hand, PartialPosition, PieceKind, Square};
+use shogi_core::{Color, Hand, PartialPosition, PieceKind, Square, ToUsi};
 use shogi_usi_parser::FromUsi;
 use std::fs::File;
 use std::io::{BufRead, Read};
@@ -128,10 +128,16 @@ fn run(sfen: &str, input: &str, args: &Args) -> Result<(), ParseError> {
         println!("{}", pos2csa(&pos));
     }
     let now = Instant::now();
-    println!(
-        "{:?}",
-        solve::<YasaiPosition, HashMapTable>(pos, args.timeout.map(Duration::from_secs_f32))
-    );
+    let result =
+        solve::<YasaiPosition, HashMapTable>(pos, args.timeout.map(Duration::from_secs_f32)).map(
+            |res| {
+                res.iter()
+                    .map(|m| m.to_usi_owned())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            },
+        );
+    println!("{:?}", result);
     if args.verbose {
         println!("elapsed: {:?}", now.elapsed());
     }

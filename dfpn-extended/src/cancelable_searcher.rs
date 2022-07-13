@@ -2,7 +2,6 @@ use crate::SearchOrCancel;
 use dfpn::search::Search;
 use dfpn::{Node, Position, Table, U};
 use instant::Instant;
-use shogi_core::Move;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -50,13 +49,13 @@ where
     fn hash_key(&self) -> u64 {
         self.pos.hash_key()
     }
-    fn generate_legal_moves(&mut self, node: Node) -> Vec<(Move, u64)> {
+    fn generate_legal_moves(&mut self, node: Node) -> Vec<(P::M, u64)> {
         self.pos.generate_legal_moves(node)
     }
-    fn do_move(&mut self, m: Move) {
+    fn do_move(&mut self, m: P::M) {
         self.pos.do_move(m)
     }
-    fn undo_move(&mut self, m: Move) {
+    fn undo_move(&mut self, m: P::M) {
         self.pos.undo_move(m)
     }
     fn look_up_hash(&self, key: &u64) -> (U, U) {
@@ -85,48 +84,37 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shogi_core::{Color, Piece, Square};
+    use shogi_core::{Move, Piece, Square};
     use std::collections::HashMap;
 
-    struct InfinityPosition(u64);
+    #[derive(Clone, Copy)]
+    struct M(u64);
+
+    impl Into<Move> for M {
+        fn into(self) -> Move {
+            Move::Drop {
+                to: Square::SQ_1A,
+                piece: Piece::B_P,
+            }
+        }
+    }
+
+    struct InfinityPosition(M);
 
     impl Position for InfinityPosition {
+        type M = M;
+
         fn hash_key(&self) -> u64 {
-            self.0
+            self.0 .0
         }
-        fn generate_legal_moves(&mut self, _node: Node) -> Vec<(Move, u64)> {
-            vec![
-                (
-                    Move::Drop {
-                        to: Square::SQ_1A,
-                        piece: Piece::B_P,
-                    },
-                    self.0 + 1,
-                ),
-                (
-                    Move::Drop {
-                        to: Square::SQ_1A,
-                        piece: Piece::W_P,
-                    },
-                    self.0 + 2,
-                ),
-            ]
+        fn generate_legal_moves(&mut self, _node: Node) -> Vec<(M, u64)> {
+            vec![(M(1), self.0 .0 + 1), (M(2), self.0 .0 + 2)]
         }
-        fn do_move(&mut self, m: Move) {
-            if let Move::Drop { to: _, piece } = m {
-                self.0 += match piece.color() {
-                    Color::Black => 1,
-                    Color::White => 2,
-                };
-            }
+        fn do_move(&mut self, m: M) {
+            self.0 .0 += m.0;
         }
-        fn undo_move(&mut self, m: Move) {
-            if let Move::Drop { to: _, piece } = m {
-                self.0 -= match piece.color() {
-                    Color::Black => 1,
-                    Color::White => 2,
-                };
-            }
+        fn undo_move(&mut self, m: M) {
+            self.0 .0 -= m.0;
         }
     }
 
@@ -151,7 +139,7 @@ mod tests {
     #[test]
     fn timeout() {
         let mut searcher: CancelableSearcher<_, HashMapTable> =
-            CancelableSearcher::new(InfinityPosition(1), Some(Duration::from_millis(10)));
+            CancelableSearcher::new(InfinityPosition(M(1)), Some(Duration::from_millis(10)));
         match searcher.dfpn_search() {
             Err(CanceledError::Timeout) => {}
             _ => panic!("expected timeout"),
