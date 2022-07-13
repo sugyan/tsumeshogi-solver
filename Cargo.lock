@@ -338,6 +338,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "solver"
+version = "0.1.0"
+dependencies = [
+ "dfpn",
+ "dfpn-extended",
+ "shogi_core",
+]
+
+[[package]]
 name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -407,10 +416,10 @@ dependencies = [
  "clap",
  "csa",
  "dfpn",
- "dfpn-extended",
  "shogi-converter",
  "shogi_core",
  "shogi_usi_parser",
+ "solver",
  "thiserror",
  "yasai",
 ]

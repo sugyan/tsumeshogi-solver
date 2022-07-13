@@ -1,6 +1,6 @@
-use crate::solver::CalculateResult;
 use dfpn::Node;
 use shogi_core::{Hand, Move, PartialPosition};
+use solver::CalculateResult;
 use yasai::Position;
 
 pub struct YasaiPosition(Position);

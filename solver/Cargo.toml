@@ -1,0 +1,11 @@
+[package]
+name = "solver"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dfpn = { path = "../dfpn" }
+dfpn-extended = { path = "../dfpn-extended" }
+shogi_core = "0.1.4"

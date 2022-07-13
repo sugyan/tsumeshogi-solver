@@ -4,12 +4,12 @@ use shogi_converter::kif_converter::{parse_kif, KifError};
 use shogi_converter::Record;
 use shogi_core::{Color, Hand, PartialPosition, PieceKind, Square, ToUsi};
 use shogi_usi_parser::FromUsi;
+use solver::solve;
 use std::fs::File;
 use std::io::{BufRead, Read};
 use std::time::{Duration, Instant};
 use thiserror::Error;
 use tsumeshogi_solver::implementations::{HashMapTable, YasaiPosition};
-use tsumeshogi_solver::solve;
 
 #[derive(Error, Debug)]
 enum ParseError {
