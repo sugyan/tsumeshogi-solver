@@ -2,7 +2,8 @@ use clap::{ArgEnum, Parser};
 use csa::{parse_csa, CsaError};
 use shogi_converter::kif_converter::{parse_kif, KifError};
 use shogi_converter::Record;
-use shogi_core::{Color, Hand, PartialPosition, PieceKind, Square, ToUsi};
+use shogi_core::{Color, Hand, Move, PartialPosition, PieceKind, Square, ToUsi};
+use shogi_official_kifu::display_single_move_kansuji;
 use shogi_usi_parser::FromUsi;
 use solver::solve;
 use std::fs::File;
@@ -59,8 +60,11 @@ struct Args {
     #[clap(short, long)]
     verbose: bool,
     /// Input format
-    #[clap(short, long, arg_enum, value_name = "FORMAT", default_value_t = Format::Sfen)]
-    format: Format,
+    #[clap(short, long, arg_enum, value_name = "FORMAT", default_value_t = InputFormat::Sfen)]
+    input_format: InputFormat,
+    /// Output format
+    #[clap(short, long, arg_enum, value_name = "FORMAT", default_value_t = OutputFormat::Usi)]
+    output_format: OutputFormat,
     /// Time limit to solve (seconds)
     #[clap(short, long)]
     timeout: Option<f32>,
@@ -70,18 +74,25 @@ struct Args {
 }
 
 #[derive(Clone, ArgEnum)]
-enum Format {
+enum InputFormat {
     Sfen,
     Csa,
     Kif,
 }
 
+#[derive(Clone, Copy, ArgEnum)]
+enum OutputFormat {
+    Usi,
+    Csa,
+    Kifu,
+}
+
 fn main() -> Result<(), ParseError> {
     let args = Args::parse();
-    match args.format {
-        Format::Sfen => run_sfen(&args),
-        Format::Csa => run_parse(CsaParser, &args),
-        Format::Kif => run_parse(KifParser, &args),
+    match args.input_format {
+        InputFormat::Sfen => run_sfen(&args),
+        InputFormat::Csa => run_parse(CsaParser, &args),
+        InputFormat::Kif => run_parse(KifParser, &args),
     }
 }
 
@@ -128,20 +139,38 @@ fn run(sfen: &str, input: &str, args: &Args) -> Result<(), ParseError> {
         println!("{}", pos2csa(&pos));
     }
     let now = Instant::now();
-    let result =
-        solve::<YasaiPosition, HashMapTable>(pos, args.timeout.map(Duration::from_secs_f32)).map(
-            |res| {
-                res.iter()
-                    .map(|m| m.to_usi_owned())
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            },
-        );
+    let result = solve::<YasaiPosition, HashMapTable>(
+        pos.clone(),
+        args.timeout.map(Duration::from_secs_f32),
+    )
+    .map(|v| output(pos, v, args.output_format).join(" "));
     println!("{:?}", result);
     if args.verbose {
         println!("elapsed: {:?}", now.elapsed());
     }
     Ok(())
+}
+
+fn output(pos: PartialPosition, v: Vec<Move>, format: OutputFormat) -> Vec<String> {
+    match format {
+        OutputFormat::Usi => v.iter().map(|m| m.to_usi_owned()).collect(),
+        OutputFormat::Csa => v
+            .iter()
+            .scan(pos, |pos, &m| {
+                let ret = move2action(pos, m).to_string();
+                pos.make_move(m);
+                Some(ret)
+            })
+            .collect(),
+        OutputFormat::Kifu => v
+            .iter()
+            .scan(pos, |pos, &m| {
+                let ret = display_single_move_kansuji(pos, m);
+                pos.make_move(m);
+                ret
+            })
+            .collect(),
+    }
 }
 
 fn pos2csa(pos: &PartialPosition) -> String {
@@ -212,6 +241,22 @@ fn pos2csa(pos: &PartialPosition) -> String {
     .to_string()
 }
 
+fn move2action(pos: &PartialPosition, m: Move) -> csa::Action {
+    match m {
+        Move::Normal { from, to, promote } => {
+            let p = pos.piece_at(from).expect("piece not found");
+            let pk = if promote { p.promote().unwrap_or(p) } else { p }.piece_kind();
+            csa::Action::Move(c2c(pos.side_to_move()), sq2sq(from), sq2sq(to), pk2pt(pk))
+        }
+        Move::Drop { to, piece } => csa::Action::Move(
+            c2c(pos.side_to_move()),
+            csa::Square::new(0, 0),
+            sq2sq(to),
+            pk2pt(piece.piece_kind()),
+        ),
+    }
+}
+
 fn pk2pt(pk: PieceKind) -> csa::PieceType {
     match pk {
         PieceKind::Pawn => csa::PieceType::Pawn,
@@ -236,4 +281,8 @@ fn c2c(c: Color) -> csa::Color {
         Color::Black => csa::Color::Black,
         Color::White => csa::Color::White,
     }
+}
+
+fn sq2sq(sq: Square) -> csa::Square {
+    csa::Square::new(sq.file(), sq.rank())
 }

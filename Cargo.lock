@@ -329,6 +329,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0c99c07667dfb58bac4cd9156e3d1ead9f3c78223a282301bc51f49b4efcf2d"
 
 [[package]]
+name = "shogi_legality_lite"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a1b3b7f5092269af9fad7d3c6978824179d27f04f4bbaecad6ac4adf6f94f16"
+dependencies = [
+ "shogi_core",
+]
+
+[[package]]
+name = "shogi_official_kifu"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "191aa04128cc27c9ee8b2f3d1ebc5df0764e8a874c5c9631d30d8f232b87d0c0"
+dependencies = [
+ "shogi_core",
+ "shogi_legality_lite",
+]
+
+[[package]]
 name = "shogi_usi_parser"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -418,6 +437,7 @@ dependencies = [
  "dfpn",
  "shogi-converter",
  "shogi_core",
+ "shogi_official_kifu",
  "shogi_usi_parser",
  "solver",
  "thiserror",
