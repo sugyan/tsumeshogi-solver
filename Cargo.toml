@@ -12,7 +12,6 @@ solver = { path = "./solver" }
 csa = "1.0.2"
 clap = { version = "3.1.1", features = ["derive"] }
 thiserror = "1.0.30"
-yasai = { git = "https://github.com/sugyan/yasai", tag = "0.5.0", features = ["simd"] }
 shogi_core = "0.1.4"
 shogi_usi_parser = "0.1.0"
 shogi_official_kifu = "0.1.1"
