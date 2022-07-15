@@ -4,7 +4,7 @@ use dfpn::search::Search;
 use dfpn::DefaultSearcher;
 use shogi_core::PartialPosition;
 use shogi_usi_parser::FromUsi;
-use tsumeshogi_solver::implementations::{HashMapTable, VecTable, YasaiPosition};
+use solver::implementations::{HashMapTable, VecTable, YasaiPosition};
 
 fn test_cases() -> Vec<String> {
     vec![

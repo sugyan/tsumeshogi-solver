@@ -3,8 +3,8 @@
 # tsumeshogi-solver
 
 ```
-$ cat 3.csa
-V2.2
+% ./tsumeshogi-solver -v '9/9/3pp4/+r2k1p3/2L1+p4/2+R6/B8/B8/9 b 4g4s4n3l14p 1'
+9/9/3pp4/+r2k1p3/2L1+p4/2+R6/B8/B8/9 b 4g4s4n3l14p 1:
 P1 *  *  *  *  *  *  *  *  *
 P2 *  *  *  *  *  *  *  *  *
 P3 *  *  * -FU-FU *  *  *  *
@@ -17,39 +17,14 @@ P9 *  *  *  *  *  *  *  *  *
 P-00AL
 +
 
-$ ./tsumeshogi-solver --format csa -v 3.csa
-   9   8   7   6   5   4   3   2   1
-+---+---+---+---+---+---+---+---+---+
-|   |   |   |   |   |   |   |   |   | a
-+---+---+---+---+---+---+---+---+---+
-|   |   |   |   |   |   |   |   |   | b
-+---+---+---+---+---+---+---+---+---+
-|   |   |   |  p|  p|   |   |   |   | c
-+---+---+---+---+---+---+---+---+---+
-| +r|   |   |  k|   |  p|   |   |   | d
-+---+---+---+---+---+---+---+---+---+
-|   |   |  L|   | +p|   |   |   |   | e
-+---+---+---+---+---+---+---+---+---+
-|   |   | +R|   |   |   |   |   |   | f
-+---+---+---+---+---+---+---+---+---+
-|  B|   |   |   |   |   |   |   |   | g
-+---+---+---+---+---+---+---+---+---+
-|  B|   |   |   |   |   |   |   |   | h
-+---+---+---+---+---+---+---+---+---+
-|   |   |   |   |   |   |   |   |   | i
-+---+---+---+---+---+---+---+---+---+
-Side to move: Black
-Hand (Black):
-Hand (White): g4 s4 n4 l3 p14
-Ply: 1
-
-Ok(["+7572NY", "-0086KE", "+7673RY"])
+Ok("7e7b+ N*8f 7f7c")
+elapsed: 35.561833ms
 ```
 
 ### Run
 
 ```
-Tsumeshogi Solver 0.5.2
+Tsumeshogi Solver 0.6.0
 
 USAGE:
     tsumeshogi-solver [OPTIONS] <INPUTS>...
@@ -58,13 +33,12 @@ ARGS:
     <INPUTS>...    Input files or SFEN strings
 
 OPTIONS:
-        --backend <BACKEND>    Backend implementation [default: yasai] [possible values: shogi,
-                               yasai]
-    -f, --format <FORMAT>      Input format [default: sfen] [possible values: sfen, csa, kif]
-    -h, --help                 Print help information
-    -t, --timeout <TIMEOUT>    Time limit to solve (seconds)
-    -v, --verbose              Verbose mode
-    -V, --version              Print version information
+    -h, --help                      Print help information
+    -i, --input-format <FORMAT>     Input format [default: sfen] [possible values: sfen, csa, kif]
+    -o, --output-format <FORMAT>    Output format [default: usi] [possible values: usi, csa, kifu]
+    -t, --timeout <TIMEOUT>         Time limit to solve (seconds)
+    -v, --verbose                   Verbose mode
+    -V, --version                   Print version information
 ```
 
 
