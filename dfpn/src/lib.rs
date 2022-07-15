@@ -1,11 +1,11 @@
-mod default_searcher;
-pub mod impl_hashmap_table;
-pub mod impl_vec_table;
+mod node;
 pub mod search;
-mod types;
+mod searcher;
+mod traits;
 
-pub use default_searcher::*;
-pub use types::*;
+pub use node::Node;
+pub use searcher::DefaultSearcher;
+pub use traits::*;
 
 pub type U = u32;
 pub const INF: U = U::MAX;

@@ -1,8 +1,7 @@
-use crate::impl_hashmap_table::HashMapTable;
 use crate::search::Search;
 use crate::{Node, Position, Table, U};
 
-pub struct DefaultSearcher<P, T = HashMapTable> {
+pub struct DefaultSearcher<P, T> {
     pub pos: P,
     table: T,
 }

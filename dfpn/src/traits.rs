@@ -1,25 +1,8 @@
-use crate::U;
-use std::ops;
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Node {
-    Or,
-    And,
-}
-
-impl ops::Not for Node {
-    type Output = Node;
-
-    fn not(self) -> Self::Output {
-        match self {
-            Node::Or => Node::And,
-            Node::And => Node::Or,
-        }
-    }
-}
+use crate::{Node, U};
+use shogi_core::Move;
 
 pub trait Position {
-    type M: Copy + PartialEq;
+    type M: Copy + Into<Move>;
 
     fn hash_key(&self) -> u64;
     fn generate_legal_moves(&mut self, node: Node) -> Vec<(Self::M, u64)>;

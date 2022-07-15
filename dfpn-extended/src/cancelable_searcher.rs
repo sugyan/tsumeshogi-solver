@@ -1,5 +1,4 @@
 use crate::SearchOrCancel;
-use dfpn::impl_hashmap_table::HashMapTable;
 use dfpn::search::Search;
 use dfpn::{Node, Position, Table, U};
 use instant::Instant;
@@ -12,7 +11,7 @@ pub enum CanceledError {
     Timeout,
 }
 
-pub struct CancelableSearcher<P, T = HashMapTable> {
+pub struct CancelableSearcher<P, T> {
     pub pos: P,
     table: T,
     timeout: Option<Duration>,
@@ -85,29 +84,62 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shogi_core::{Move, Piece, Square};
+    use std::collections::HashMap;
 
-    struct InfinityPosition(u64);
+    #[derive(Clone, Copy)]
+    struct M(u64);
+
+    impl Into<Move> for M {
+        fn into(self) -> Move {
+            Move::Drop {
+                to: Square::SQ_1A,
+                piece: Piece::B_P,
+            }
+        }
+    }
+
+    struct InfinityPosition(M);
 
     impl Position for InfinityPosition {
-        type M = u64;
+        type M = M;
+
         fn hash_key(&self) -> u64 {
-            self.0
+            self.0 .0
         }
-        fn generate_legal_moves(&mut self, _node: Node) -> Vec<(u64, u64)> {
-            vec![(0, self.0 << 1), (1, (self.0 << 1) + 1)]
+        fn generate_legal_moves(&mut self, _node: Node) -> Vec<(M, u64)> {
+            vec![(M(1), self.0 .0 + 1), (M(2), self.0 .0 + 2)]
         }
-        fn do_move(&mut self, m: u64) {
-            self.0 = (self.0 << 1) + m;
+        fn do_move(&mut self, m: M) {
+            self.0 .0 += m.0;
         }
-        fn undo_move(&mut self, _m: u64) {
-            self.0 >>= 1;
+        fn undo_move(&mut self, m: M) {
+            self.0 .0 -= m.0;
+        }
+    }
+
+    #[derive(Default)]
+    struct HashMapTable {
+        table: HashMap<u64, (U, U)>,
+    }
+
+    impl Table for HashMapTable {
+        fn look_up_hash(&self, key: &u64) -> (U, U) {
+            if let Some(&v) = self.table.get(key) {
+                v
+            } else {
+                (1, 1)
+            }
+        }
+        fn put_in_hash(&mut self, key: u64, value: (U, U)) {
+            self.table.insert(key, value);
         }
     }
 
     #[test]
     fn timeout() {
-        let mut searcher: CancelableSearcher<_> =
-            CancelableSearcher::new(InfinityPosition(1), Some(Duration::from_millis(10)));
+        let mut searcher: CancelableSearcher<_, HashMapTable> =
+            CancelableSearcher::new(InfinityPosition(M(1)), Some(Duration::from_millis(10)));
         match searcher.dfpn_search() {
             Err(CanceledError::Timeout) => {}
             _ => panic!("expected timeout"),

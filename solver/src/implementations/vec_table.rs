@@ -1,4 +1,4 @@
-use crate::{Table, U};
+use dfpn::{Table, U};
 
 pub struct VecTable {
     table: Vec<Option<(U, U)>>,

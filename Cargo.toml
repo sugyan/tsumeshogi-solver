@@ -1,19 +1,24 @@
 [package]
 name = "tsumeshogi-solver"
-version = "0.5.2"
+version = "0.6.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dfpn = { path = "./dfpn" }
-dfpn-extended = { path = "./dfpn-extended" }
 shogi-converter = { path = "./shogi-converter" }
-csa = "1.0.1"
+solver = { path = "./solver" }
+csa = "1.0.2"
 clap = { version = "3.1.1", features = ["derive"] }
-shogi = "0.12.2"
 thiserror = "1.0.30"
-yasai = { git = "https://github.com/sugyan/yasai", tag = "0.1.3" }
+shogi_core = "0.1.4"
+shogi_usi_parser = "0.1.0"
+shogi_official_kifu = "0.1.1"
 
 [profile.release]
 lto = true
+
+[workspace]
+members = [
+    "solver",
+]

@@ -4,12 +4,6 @@ version = 3
 
 [[package]]
 name = "arrayvec"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
-
-[[package]]
-name = "arrayvec"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
@@ -36,24 +30,6 @@ name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
-
-[[package]]
-name = "bitintr"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ba5a5c4df8ac8673f22698f443ef1ce3853d7f22d5a15ebf66b9a7553b173dd"
-
-[[package]]
-name = "bitvec"
-version = "0.19.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55f93d0ef3363c364d5976646a38f04cf67cfe1d4c8d160cdea02cab2c116b33"
-dependencies = [
- "funty",
- "radium",
- "tap",
- "wyz",
-]
 
 [[package]]
 name = "cfg-if"
@@ -93,17 +69,20 @@ dependencies = [
 
 [[package]]
 name = "csa"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ae283f59c5d9162b9bacd521ecd80510d495f328b994691abee7ae83796fd27"
+checksum = "74e0a2bdcd19171bf127a6558cd393a16d2cddb283fb2c98b31b1a8897286973"
 dependencies = [
- "nom 6.1.2",
+ "nom",
  "time",
 ]
 
 [[package]]
 name = "dfpn"
 version = "0.3.0"
+dependencies = [
+ "shogi_core",
+]
 
 [[package]]
 name = "dfpn-extended"
@@ -111,6 +90,7 @@ version = "0.1.0"
 dependencies = [
  "dfpn",
  "instant",
+ "shogi_core",
  "thiserror",
 ]
 
@@ -130,16 +110,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "funty"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fed34cd105917e91daa4da6b3728c47b068749d6a62c59811f06ed2ac71d9da7"
-
-[[package]]
 name = "getrandom"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "418d37c8b1d42553c93648be529cb70f920d3baf8ef469b74b9638df426e0b4c"
+checksum = "d39cd93900197114fa1fcb7ae84ca742095eed9442088988ae74fa744e930e77"
 dependencies = [
  "cfg-if",
  "libc",
@@ -208,19 +182,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
-name = "lexical-core"
-version = "0.7.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6607c62aa161d23d17a9072cc5da0be67cdfc89d3afb1e8d9c842bebc2525ffe"
-dependencies = [
- "arrayvec 0.5.2",
- "bitflags",
- "cfg-if",
- "ryu",
- "static_assertions",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.119"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -237,19 +198,6 @@ name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
-
-[[package]]
-name = "nom"
-version = "6.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7413f999671bd4745a7b624bd370a569fb6bc574b23c83a3c5ed2e453f3d5e2"
-dependencies = [
- "bitvec",
- "funty",
- "lexical-core",
- "memchr",
- "version_check",
-]
 
 [[package]]
 name = "nom"
@@ -273,9 +221,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.10.0"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87f3e037eac156d1775da914196f0f37741a274155e34a0b7e427c35d2a2ecb9"
+checksum = "18a6dbe30758c9f83eb00cbea4ac95966305f5a7772f3f42ebfc7fc7eddbd8e1"
 
 [[package]]
 name = "os_str_bytes"
@@ -335,12 +283,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "radium"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "941ba9d78d8e2f7ce474c015eea4d9c6d25b6a3327f9832ee29a4de27f91bbb8"
-
-[[package]]
 name = "rand"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -371,37 +313,59 @@ dependencies = [
 ]
 
 [[package]]
-name = "ryu"
-version = "1.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73b4b750c782965c211b42f022f59af1fbceabdd026623714f104152f1ec149f"
-
-[[package]]
-name = "shogi"
-version = "0.12.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9e290784f248a15668b131dbcd110b2863ee2b6e1fba797e1a1e0e9da59acc7"
-dependencies = [
- "bitintr",
- "itertools",
- "thiserror",
-]
-
-[[package]]
 name = "shogi-converter"
 version = "0.1.0"
 dependencies = [
  "csa",
  "encoding_rs",
  "itertools",
- "nom 7.1.0",
+ "nom",
 ]
 
 [[package]]
-name = "static_assertions"
-version = "1.1.0"
+name = "shogi_core"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+checksum = "f0c99c07667dfb58bac4cd9156e3d1ead9f3c78223a282301bc51f49b4efcf2d"
+
+[[package]]
+name = "shogi_legality_lite"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a1b3b7f5092269af9fad7d3c6978824179d27f04f4bbaecad6ac4adf6f94f16"
+dependencies = [
+ "shogi_core",
+]
+
+[[package]]
+name = "shogi_official_kifu"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "191aa04128cc27c9ee8b2f3d1ebc5df0764e8a874c5c9631d30d8f232b87d0c0"
+dependencies = [
+ "shogi_core",
+ "shogi_legality_lite",
+]
+
+[[package]]
+name = "shogi_usi_parser"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f39adab2055cf0bc5c9523b237e14ad9aba385bc7ebf90c9385876a48cef8c62"
+dependencies = [
+ "shogi_core",
+]
+
+[[package]]
+name = "solver"
+version = "0.1.0"
+dependencies = [
+ "dfpn",
+ "dfpn-extended",
+ "shogi_core",
+ "shogi_usi_parser",
+ "yasai",
+]
 
 [[package]]
 name = "strsim"
@@ -419,12 +383,6 @@ dependencies = [
  "quote",
  "unicode-xid",
 ]
-
-[[package]]
-name = "tap"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "termcolor"
@@ -474,16 +432,16 @@ dependencies = [
 
 [[package]]
 name = "tsumeshogi-solver"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "clap",
  "csa",
- "dfpn",
- "dfpn-extended",
- "shogi",
  "shogi-converter",
+ "shogi_core",
+ "shogi_official_kifu",
+ "shogi_usi_parser",
+ "solver",
  "thiserror",
- "yasai",
 ]
 
 [[package]]
@@ -536,18 +494,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
-name = "wyz"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85e60b0d1b5f99db2556934e21937020776a5d31520bf169e851ac44e6420214"
-
-[[package]]
 name = "yasai"
-version = "0.2.0"
-source = "git+https://github.com/sugyan/yasai?tag=0.1.3#ed6cb8507d23e79a775c7db51abbbfedd93a7e34"
+version = "0.5.0"
+source = "git+https://github.com/sugyan/yasai?tag=0.5.0#ef8e5cb81fdd5b216432d6e09d67772ddf27207e"
 dependencies = [
- "arrayvec 0.7.2",
- "bitintr",
+ "arrayvec",
+ "cfg-if",
  "once_cell",
  "rand",
+ "shogi_core",
 ]
