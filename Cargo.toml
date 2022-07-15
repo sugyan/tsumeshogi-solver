@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dfpn = { path = "./dfpn" }
 shogi-converter = { path = "./shogi-converter" }
 solver = { path = "./solver" }
 csa = "1.0.2"
@@ -18,3 +17,8 @@ shogi_official_kifu = "0.1.1"
 
 [profile.release]
 lto = true
+
+[workspace]
+members = [
+    "solver",
+]

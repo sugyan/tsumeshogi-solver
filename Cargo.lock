@@ -436,7 +436,6 @@ version = "0.6.0"
 dependencies = [
  "clap",
  "csa",
- "dfpn",
  "shogi-converter",
  "shogi_core",
  "shogi_official_kifu",
