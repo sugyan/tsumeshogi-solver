@@ -1,4 +1,5 @@
-use crate::{Node, U};
+use crate::Node;
+use num_traits::{PrimInt, SaturatingAdd, Unsigned};
 use shogi_core::Move;
 
 pub trait Position {
@@ -11,6 +12,8 @@ pub trait Position {
 }
 
 pub trait Table: Default {
-    fn look_up_hash(&self, key: &u64) -> (U, U);
-    fn put_in_hash(&mut self, key: u64, value: (U, U));
+    type U: Unsigned + PrimInt + SaturatingAdd;
+
+    fn look_up_hash(&self, key: &u64) -> (Self::U, Self::U);
+    fn put_in_hash(&mut self, key: u64, value: (Self::U, Self::U));
 }

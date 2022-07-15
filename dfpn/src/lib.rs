@@ -5,7 +5,4 @@ mod traits;
 
 pub use node::Node;
 pub use searcher::DefaultSearcher;
-pub use traits::*;
-
-pub type U = u32;
-pub const INF: U = U::MAX;
+pub use traits::{Position, Table};

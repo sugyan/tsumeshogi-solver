@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 shogi_core = "0.1.4"
+num-traits = "0.2.15"

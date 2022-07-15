@@ -1,6 +1,6 @@
 use crate::SearchOrCancel;
 use dfpn::search::Search;
-use dfpn::{Node, Position, Table, U};
+use dfpn::{Node, Position, Table};
 use instant::Instant;
 use std::time::Duration;
 use thiserror::Error;
@@ -58,10 +58,10 @@ where
     fn undo_move(&mut self, m: P::M) {
         self.pos.undo_move(m)
     }
-    fn look_up_hash(&self, key: &u64) -> (U, U) {
+    fn look_up_hash(&self, key: &u64) -> (T::U, T::U) {
         self.table.look_up_hash(key)
     }
-    fn put_in_hash(&mut self, key: u64, value: (U, U)) {
+    fn put_in_hash(&mut self, key: u64, value: (T::U, T::U)) {
         self.table.put_in_hash(key, value)
     }
 }
@@ -120,18 +120,20 @@ mod tests {
 
     #[derive(Default)]
     struct HashMapTable {
-        table: HashMap<u64, (U, U)>,
+        table: HashMap<u64, (u32, u32)>,
     }
 
     impl Table for HashMapTable {
-        fn look_up_hash(&self, key: &u64) -> (U, U) {
+        type U = u32;
+
+        fn look_up_hash(&self, key: &u64) -> (Self::U, Self::U) {
             if let Some(&v) = self.table.get(key) {
                 v
             } else {
                 (1, 1)
             }
         }
-        fn put_in_hash(&mut self, key: u64, value: (U, U)) {
+        fn put_in_hash(&mut self, key: u64, value: (Self::U, Self::U)) {
             self.table.insert(key, value);
         }
     }

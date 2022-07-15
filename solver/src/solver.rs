@@ -1,6 +1,7 @@
 use dfpn::search::Search;
-use dfpn::{Node, Position, Table, INF};
+use dfpn::{Node, Position, Table};
 use dfpn_extended::{CancelableSearcher, CanceledError};
+use num_traits::{Bounded, Zero};
 use shogi_core::{Move, PartialPosition};
 use std::collections::HashSet;
 use std::time::Duration;
@@ -45,9 +46,9 @@ fn search_all_mates<P, T>(
     T: Table,
 {
     let (node, mate_pd) = if moves.len() & 1 == 0 {
-        (Node::Or, (INF, 0))
+        (Node::Or, (T::U::max_value(), T::U::zero()))
     } else {
-        (Node::And, (0, INF))
+        (Node::And, (T::U::zero(), T::U::max_value()))
     };
     let mate_moves = searcher
         .generate_legal_moves(node)
