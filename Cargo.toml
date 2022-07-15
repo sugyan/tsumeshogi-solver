@@ -15,6 +15,9 @@ shogi_core = "0.1.4"
 shogi_usi_parser = "0.1.0"
 shogi_official_kifu = "0.1.1"
 
+[dev-dependencies]
+dfpn = { path = "./dfpn" }
+
 [profile.release]
 lto = true
 

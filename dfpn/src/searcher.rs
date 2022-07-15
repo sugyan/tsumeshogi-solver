@@ -1,5 +1,5 @@
 use crate::search::Search;
-use crate::{Node, Position, Table, U};
+use crate::{Node, Position, Table};
 
 pub struct DefaultSearcher<P, T> {
     pub pos: P,
@@ -36,10 +36,10 @@ where
     fn undo_move(&mut self, m: P::M) {
         self.pos.undo_move(m)
     }
-    fn look_up_hash(&self, key: &u64) -> (U, U) {
+    fn look_up_hash(&self, key: &u64) -> (T::U, T::U) {
         self.table.look_up_hash(key)
     }
-    fn put_in_hash(&mut self, key: u64, value: (U, U)) {
+    fn put_in_hash(&mut self, key: u64, value: (T::U, T::U)) {
         self.table.put_in_hash(key, value)
     }
 }

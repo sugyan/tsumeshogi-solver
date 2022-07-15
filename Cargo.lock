@@ -81,6 +81,7 @@ dependencies = [
 name = "dfpn"
 version = "0.3.0"
 dependencies = [
+ "num-traits",
  "shogi_core",
 ]
 
@@ -90,6 +91,7 @@ version = "0.1.0"
 dependencies = [
  "dfpn",
  "instant",
+ "num-traits",
  "shogi_core",
  "thiserror",
 ]
@@ -208,6 +210,15 @@ dependencies = [
  "memchr",
  "minimal-lexical",
  "version_check",
+]
+
+[[package]]
+name = "num-traits"
+version = "0.2.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
+dependencies = [
+ "autocfg",
 ]
 
 [[package]]
@@ -362,6 +373,7 @@ version = "0.1.0"
 dependencies = [
  "dfpn",
  "dfpn-extended",
+ "num-traits",
  "shogi_core",
  "shogi_usi_parser",
  "yasai",
@@ -436,6 +448,7 @@ version = "0.6.0"
 dependencies = [
  "clap",
  "csa",
+ "dfpn",
  "shogi-converter",
  "shogi_core",
  "shogi_official_kifu",
