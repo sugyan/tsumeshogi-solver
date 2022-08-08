@@ -1,7 +1,7 @@
 pub mod implementations;
 mod solver;
 
-pub use solver::*;
+pub use self::solver::*;
 
 #[cfg(test)]
 mod tests {
