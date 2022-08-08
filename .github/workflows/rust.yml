@@ -24,8 +24,6 @@ jobs:
       run: cargo test --verbose -p dfpn --lib
     - name: Run tests for dfpn-extended
       run: cargo test --verbose -p dfpn-extended --lib
-    - name: Run tests for shogi-converter
-      run: cargo test --verbose -p shogi-converter --lib
 
   clippy_check:
 
