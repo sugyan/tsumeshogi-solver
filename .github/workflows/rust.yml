@@ -50,9 +50,3 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         name: clippy-dfpn-extended
         args: --all-features --manifest-path ./dfpn-extended/Cargo.toml
-    - name: Run clippy for shogi-converter
-      uses: actions-rs/clippy-check@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        name: clippy-shogi-converter
-        args: --all-features --manifest-path ./shogi-converter/Cargo.toml
