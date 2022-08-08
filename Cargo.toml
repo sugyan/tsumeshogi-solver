@@ -10,7 +10,7 @@ solver = { path = "./solver" }
 clap = { version = "3.2", features = ["derive"] }
 thiserror = "1.0"
 encoding_rs = "0.8.31"
-shogi_core = "0.1.4"
+shogi_core = "0.1.5"
 shogi_usi_parser = "0.1.0"
 shogi_official_kifu = "0.1.1"
 shogi-kifu-converter = "0.2.0"
