@@ -1,12 +1,15 @@
 use clap::{ArgEnum, Parser};
-use csa::{parse_csa, CsaError};
-use shogi_converter::kif_converter::{parse_kif, KifError};
-use shogi_converter::Record;
-use shogi_core::{Color, Hand, Move, PartialPosition, PieceKind, Square, ToUsi};
+use encoding_rs::SHIFT_JIS;
+use shogi_core::{Color, Move, PartialPosition, PieceKind, Position, Square, ToUsi};
+use shogi_kifu_converter::converter::ToCsa;
+use shogi_kifu_converter::error::{ConvertError, CoreConvertError, NormalizerError};
+use shogi_kifu_converter::jkf::JsonKifuFormat;
+use shogi_kifu_converter::parser::{parse_csa_str, parse_kif_str};
 use shogi_official_kifu::display_single_move_kansuji;
 use shogi_usi_parser::FromUsi;
 use solver::implementations::{HashMapTable, YasaiPosition};
 use solver::solve;
+use std::fmt::Write;
 use std::fs::File;
 use std::io::{BufRead, Read};
 use std::time::{Duration, Instant};
@@ -14,41 +17,58 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 enum ParseError {
-    #[error("failed to parse csa: {0}")]
-    Csa(CsaError),
-    #[error("failed to parse kif: {0}")]
-    Kif(KifError),
     #[error(transparent)]
     Usi(#[from] shogi_usi_parser::Error),
     #[error(transparent)]
     Utf8(#[from] std::str::Utf8Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Convert(#[from] ConvertError),
+    #[error(transparent)]
+    Normalize(#[from] NormalizerError),
+    #[error(transparent)]
+    CoreConvert(#[from] CoreConvertError),
+    #[error(transparent)]
+    KifError(#[from] KifError),
+}
+
+#[derive(Error, Debug)]
+enum KifError {
+    #[error("Input is not SHIFT-JIS")]
+    EncodingNotShiftJISError,
+    #[error("Decode error")]
+    DecodingError,
 }
 
 trait Parse {
-    fn parse(&self, input: &[u8]) -> Result<String, ParseError>;
+    fn parse(&self, input: &[u8]) -> Result<PartialPosition, ParseError>;
 }
 
 struct CsaParser;
 
 impl Parse for CsaParser {
-    fn parse(&self, input: &[u8]) -> Result<String, ParseError> {
-        match parse_csa(std::str::from_utf8(input).map_err(ParseError::Utf8)?) {
-            Ok(record) => Ok(Record::from(record).pos.to_sfen()),
-            Err(e) => Err(ParseError::Csa(e)),
-        }
+    fn parse(&self, input: &[u8]) -> Result<PartialPosition, ParseError> {
+        let jkf = parse_csa_str(std::str::from_utf8(input)?)?;
+        let pos = Position::try_from(&jkf)?;
+        Ok(pos.initial_position().clone())
     }
 }
 
 struct KifParser;
 
 impl Parse for KifParser {
-    fn parse(&self, input: &[u8]) -> Result<String, ParseError> {
-        match parse_kif(input) {
-            Ok(record) => Ok(record.pos.to_sfen()),
-            Err(e) => Err(ParseError::Kif(e)),
+    fn parse(&self, input: &[u8]) -> Result<PartialPosition, ParseError> {
+        let (cow, encoding_used, had_errors) = SHIFT_JIS.decode(input);
+        if encoding_used != SHIFT_JIS {
+            return Err(ParseError::from(KifError::EncodingNotShiftJISError));
         }
+        if had_errors {
+            return Err(ParseError::from(KifError::DecodingError));
+        }
+        let jkf = parse_kif_str(&cow)?;
+        let pos = Position::try_from(&jkf)?;
+        Ok(pos.initial_position().clone())
     }
 }
 
@@ -100,12 +120,15 @@ fn run_sfen(args: &Args) -> Result<(), ParseError> {
     if args.inputs == ["-"] {
         let stdin = std::io::stdin();
         for line in stdin.lock().lines() {
-            let sfen = line?;
-            run(&sfen, &sfen, args)?;
+            let usi = format!("sfen {}", line?);
+            let pos = PartialPosition::from_usi(&usi)?;
+            run(&pos, &usi, args)?;
         }
     } else {
         for input in &args.inputs {
-            run(input, input.trim(), args)?;
+            let usi = format!("sfen {}", input.trim());
+            let pos = PartialPosition::from_usi(&usi)?;
+            run(&pos, &usi, args)?;
         }
     }
     Ok(())
@@ -131,12 +154,12 @@ where
     Ok(())
 }
 
-fn run(sfen: &str, input: &str, args: &Args) -> Result<(), ParseError> {
+fn run(pos: &PartialPosition, input: &str, args: &Args) -> Result<(), ParseError> {
     print!("{}: ", input);
-    let pos = PartialPosition::from_usi(&format!("sfen {sfen}"))?;
     if args.verbose {
+        let jkf = JsonKifuFormat::try_from(&Position::arbitrary_position(pos.clone()))?;
         println!();
-        println!("{}", pos2csa(&pos));
+        println!("{}", jkf.to_csa_owned());
     }
     let now = Instant::now();
     let result = solve::<YasaiPosition, HashMapTable>(
@@ -151,20 +174,20 @@ fn run(sfen: &str, input: &str, args: &Args) -> Result<(), ParseError> {
     Ok(())
 }
 
-fn output(pos: PartialPosition, v: Vec<Move>, format: OutputFormat) -> Vec<String> {
+fn output(pos: &PartialPosition, v: Vec<Move>, format: OutputFormat) -> Vec<String> {
     match format {
         OutputFormat::Usi => v.iter().map(|m| m.to_usi_owned()).collect(),
         OutputFormat::Csa => v
             .iter()
-            .scan(pos, |pos, &m| {
-                let ret = move2action(pos, m).to_string();
+            .scan(pos.clone(), |pos, &m| {
+                let ret = move2csa(pos, m);
                 pos.make_move(m);
-                Some(ret)
+                ret.ok()
             })
             .collect(),
         OutputFormat::Kifu => v
             .iter()
-            .scan(pos, |pos, &m| {
+            .scan(pos.clone(), |pos, &m| {
                 let ret = display_single_move_kansuji(pos, m);
                 pos.make_move(m);
                 ret
@@ -173,116 +196,59 @@ fn output(pos: PartialPosition, v: Vec<Move>, format: OutputFormat) -> Vec<Strin
     }
 }
 
-fn pos2csa(pos: &PartialPosition) -> String {
-    let mut remains = Hand::default();
-    for (pk, num) in [
-        (PieceKind::Pawn, 18),
-        (PieceKind::Lance, 4),
-        (PieceKind::Knight, 4),
-        (PieceKind::Silver, 4),
-        (PieceKind::Gold, 4),
-        (PieceKind::Bishop, 2),
-        (PieceKind::Rook, 2),
-    ] {
-        for _ in 0..num {
-            remains = remains.added(pk).unwrap();
-        }
-    }
-    let mut board = [[None; 9]; 9];
-    for sq in Square::all() {
-        if let Some(p) = pos.piece_at(sq) {
-            board[sq.rank() as usize - 1][9 - sq.file() as usize] =
-                Some((c2c(p.color()), pk2pt(p.piece_kind())));
-            if p.piece_kind() != PieceKind::King {
-                remains = remains
-                    .removed(p.unpromote().unwrap_or(p).piece_kind())
-                    .unwrap();
-            }
-        }
-    }
-    let mut add_pieces = Vec::new();
-    for &pk in Hand::all_hand_pieces().collect::<Vec<_>>().iter().rev() {
-        for _ in 0..pos
-            .hand_of_a_player(pos.side_to_move())
-            .count(pk)
-            .unwrap_or_default()
-        {
-            add_pieces.push((c2c(pos.side_to_move()), csa::Square::new(0, 0), pk2pt(pk)));
-            remains = remains.removed(pk).unwrap();
-        }
-    }
-    if remains == pos.hand_of_a_player(pos.side_to_move().flip()) {
-        add_pieces.push((
-            c2c(pos.side_to_move().flip()),
-            csa::Square::new(0, 0),
-            csa::PieceType::All,
-        ));
-    } else {
-        for &pk in Hand::all_hand_pieces().collect::<Vec<_>>().iter().rev() {
-            for _ in 0..pos
-                .hand_of_a_player(pos.side_to_move().flip())
-                .count(pk)
-                .unwrap_or_default()
-            {
-                add_pieces.push((
-                    c2c(pos.side_to_move().flip()),
-                    csa::Square::new(0, 0),
-                    pk2pt(pk),
-                ));
-            }
-        }
-    }
-    csa::Position {
-        drop_pieces: Vec::new(),
-        bulk: Some(board),
-        add_pieces,
-        side_to_move: c2c(pos.side_to_move()),
-    }
-    .to_string()
-}
-
-fn move2action(pos: &PartialPosition, m: Move) -> csa::Action {
+fn move2csa(pos: &PartialPosition, m: Move) -> Result<String, std::fmt::Error> {
+    let mut ret = String::new();
+    write_c(pos.side_to_move(), &mut ret)?;
     match m {
         Move::Normal { from, to, promote } => {
-            let p = pos.piece_at(from).expect("piece not found");
-            let pk = if promote { p.promote().unwrap_or(p) } else { p }.piece_kind();
-            csa::Action::Move(c2c(pos.side_to_move()), sq2sq(from), sq2sq(to), pk2pt(pk))
+            write_sq(from, &mut ret)?;
+            write_sq(to, &mut ret)?;
+            let pk = pos.piece_at(from).expect("no piece at `from`").piece_kind();
+            write_pk(
+                if promote {
+                    pk.promote().expect("piece kind is not promoted")
+                } else {
+                    pk
+                },
+                &mut ret,
+            )?;
         }
-        Move::Drop { to, piece } => csa::Action::Move(
-            c2c(pos.side_to_move()),
-            csa::Square::new(0, 0),
-            sq2sq(to),
-            pk2pt(piece.piece_kind()),
-        ),
+        Move::Drop { piece, to } => {
+            ret.write_str("00")?;
+            write_sq(to, &mut ret)?;
+            write_pk(piece.piece_kind(), &mut ret)?;
+        }
     }
+    Ok(ret)
 }
 
-fn pk2pt(pk: PieceKind) -> csa::PieceType {
-    match pk {
-        PieceKind::Pawn => csa::PieceType::Pawn,
-        PieceKind::Lance => csa::PieceType::Lance,
-        PieceKind::Knight => csa::PieceType::Knight,
-        PieceKind::Silver => csa::PieceType::Silver,
-        PieceKind::Gold => csa::PieceType::Gold,
-        PieceKind::Bishop => csa::PieceType::Bishop,
-        PieceKind::Rook => csa::PieceType::Rook,
-        PieceKind::King => csa::PieceType::King,
-        PieceKind::ProPawn => csa::PieceType::ProPawn,
-        PieceKind::ProLance => csa::PieceType::ProLance,
-        PieceKind::ProKnight => csa::PieceType::ProKnight,
-        PieceKind::ProSilver => csa::PieceType::ProSilver,
-        PieceKind::ProBishop => csa::PieceType::Horse,
-        PieceKind::ProRook => csa::PieceType::Dragon,
-    }
-}
-
-fn c2c(c: Color) -> csa::Color {
+fn write_c<W: Write>(c: Color, sink: &mut W) -> Result<(), std::fmt::Error> {
     match c {
-        Color::Black => csa::Color::Black,
-        Color::White => csa::Color::White,
+        Color::Black => sink.write_char('+'),
+        Color::White => sink.write_char('-'),
     }
 }
 
-fn sq2sq(sq: Square) -> csa::Square {
-    csa::Square::new(sq.file(), sq.rank())
+fn write_sq<W: Write>(sq: Square, sink: &mut W) -> Result<(), std::fmt::Error> {
+    sink.write_fmt(format_args!("{}{}", sq.file(), sq.rank()))
+}
+
+fn write_pk<W: Write>(pk: PieceKind, sink: &mut W) -> Result<(), std::fmt::Error> {
+    match pk {
+        PieceKind::Pawn => sink.write_str("FU")?,
+        PieceKind::Lance => sink.write_str("KY")?,
+        PieceKind::Knight => sink.write_str("KE")?,
+        PieceKind::Silver => sink.write_str("GI")?,
+        PieceKind::Gold => sink.write_str("KI")?,
+        PieceKind::Bishop => sink.write_str("KA")?,
+        PieceKind::Rook => sink.write_str("HI")?,
+        PieceKind::King => sink.write_str("OU")?,
+        PieceKind::ProPawn => sink.write_str("TO")?,
+        PieceKind::ProLance => sink.write_str("NY")?,
+        PieceKind::ProKnight => sink.write_str("NK")?,
+        PieceKind::ProSilver => sink.write_str("NG")?,
+        PieceKind::ProBishop => sink.write_str("UM")?,
+        PieceKind::ProRook => sink.write_str("RY")?,
+    }
+    Ok(())
 }
