@@ -1,6 +1,6 @@
+use crate::dfpn_extended::{CancelableSearcher, CanceledError};
 use dfpn::search::Search;
 use dfpn::{Node, Position, Table};
-use dfpn_extended::{CancelableSearcher, CanceledError};
 use num_traits::{Bounded, Zero};
 use shogi_core::{Move, PartialPosition};
 use std::collections::HashSet;

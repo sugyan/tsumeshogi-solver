@@ -95,17 +95,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dfpn-extended"
-version = "0.1.0"
-dependencies = [
- "dfpn",
- "instant",
- "num-traits",
- "shogi_core",
- "thiserror",
-]
-
-[[package]]
 name = "encoding_rs"
 version = "0.8.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -409,18 +398,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "solver"
-version = "0.1.0"
-dependencies = [
- "dfpn",
- "dfpn-extended",
- "num-traits",
- "shogi_core",
- "shogi_usi_parser",
- "yasai",
-]
-
-[[package]]
 name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -490,12 +467,14 @@ dependencies = [
  "clap",
  "dfpn",
  "encoding_rs",
+ "instant",
+ "num-traits",
  "shogi-kifu-converter",
  "shogi_core",
  "shogi_official_kifu",
  "shogi_usi_parser",
- "solver",
  "thiserror",
+ "yasai",
 ]
 
 [[package]]

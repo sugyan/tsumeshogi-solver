@@ -6,22 +6,22 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-solver = { path = "./solver" }
-clap = { version = "3.2", features = ["derive"] }
-thiserror = "1.0"
-encoding_rs = "0.8.31"
-shogi_core = "0.1.5"
-shogi_usi_parser = "0.1.0"
-shogi_official_kifu = "0.1.1"
-shogi-kifu-converter = "0.2.0"
-
-[dev-dependencies]
 dfpn = { path = "./dfpn" }
+clap = { version = "3.2", features = ["derive"] }
+encoding_rs = "0.8.31"
+instant = "0.1"
+num-traits = "0.2"
+shogi_core = "0.1.5"
+shogi_official_kifu = "0.1.1"
+shogi_usi_parser = "0.1.0"
+shogi-kifu-converter = "0.2.0"
+thiserror = "1.0"
+yasai = { git = "https://github.com/sugyan/yasai", tag = "0.5.0", features = ["simd"] }
 
 [profile.release]
 lto = true
 
 [workspace]
 members = [
-    "solver",
+    "dfpn",
 ]
