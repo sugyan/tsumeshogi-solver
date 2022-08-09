@@ -1,4 +1,4 @@
-use crate::solver::CalculateResult;
+use crate::solve::CalculateResult;
 use dfpn::Node;
 use shogi_core::{Hand, Move, PartialPosition};
 use yasai::Position;

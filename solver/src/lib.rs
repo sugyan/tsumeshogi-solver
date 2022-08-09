@@ -1,3 +1,4 @@
+mod dfpn_extended;
 pub mod implementations;
 mod solve;
 

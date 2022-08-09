@@ -7,21 +7,20 @@ edition = "2021"
 
 [dependencies]
 dfpn = { path = "./dfpn" }
+solver = { path = "./solver" }
 clap = { version = "3.2", features = ["derive"] }
 encoding_rs = "0.8.31"
-instant = "0.1"
-num-traits = "0.2"
 shogi_core = "0.1.5"
 shogi_official_kifu = "0.1.1"
 shogi_usi_parser = "0.1.0"
 shogi-kifu-converter = "0.2.0"
 thiserror = "1.0"
-yasai = { git = "https://github.com/sugyan/yasai", tag = "0.5.0", features = ["simd"] }
 
 [profile.release]
 lto = true
 
 [workspace]
 members = [
-    "dfpn",
+    "./dfpn",
+    "./solver",
 ]

@@ -7,13 +7,13 @@ use shogi_kifu_converter::jkf::JsonKifuFormat;
 use shogi_kifu_converter::parser::{parse_csa_str, parse_kif_str};
 use shogi_official_kifu::display_single_move_kansuji;
 use shogi_usi_parser::FromUsi;
+use solver::implementations::{HashMapTable, YasaiPosition};
+use solver::solve;
 use std::fmt::Write;
 use std::fs::File;
 use std::io::{BufRead, Read};
 use std::time::{Duration, Instant};
 use thiserror::Error;
-use tsumeshogi_solver::solver::implementations::{HashMapTable, YasaiPosition};
-use tsumeshogi_solver::solver::solve;
 
 #[derive(Error, Debug)]
 enum ParseError {
