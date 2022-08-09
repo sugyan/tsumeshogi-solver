@@ -1,4 +1,4 @@
-use crate::CalculateResult;
+use crate::solve::CalculateResult;
 use dfpn::Node;
 use shogi_core::{Hand, Move, PartialPosition};
 use yasai::Position;
@@ -93,7 +93,7 @@ impl CalculateResult for YasaiPosition {
             } else if let Move::Drop { to, piece } = m {
                 drops[to.array_index()] = Some(piece.piece_kind());
             }
-            ret.push(m.clone());
+            ret.push(*m);
         }
         let score = if zero {
             0

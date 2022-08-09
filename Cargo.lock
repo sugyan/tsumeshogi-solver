@@ -95,17 +95,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dfpn-extended"
-version = "0.1.0"
-dependencies = [
- "dfpn",
- "instant",
- "num-traits",
- "shogi_core",
- "thiserror",
-]
-
-[[package]]
 name = "encoding_rs"
 version = "0.8.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -413,10 +402,11 @@ name = "solver"
 version = "0.1.0"
 dependencies = [
  "dfpn",
- "dfpn-extended",
+ "instant",
  "num-traits",
  "shogi_core",
  "shogi_usi_parser",
+ "thiserror",
  "yasai",
 ]
 

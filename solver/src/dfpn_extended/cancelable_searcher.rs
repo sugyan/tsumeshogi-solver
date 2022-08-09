@@ -1,4 +1,4 @@
-use crate::SearchOrCancel;
+use super::SearchOrCancel;
 use dfpn::search::Search;
 use dfpn::{Node, Position, Table};
 use instant::Instant;
@@ -90,8 +90,8 @@ mod tests {
     #[derive(Clone, Copy)]
     struct M(u64);
 
-    impl Into<Move> for M {
-        fn into(self) -> Move {
+    impl From<M> for Move {
+        fn from(_: M) -> Self {
             Move::Drop {
                 to: Square::SQ_1A,
                 piece: Piece::B_P,

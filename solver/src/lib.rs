@@ -1,12 +1,13 @@
+mod dfpn_extended;
 pub mod implementations;
-mod solver;
+mod solve;
 
-pub use self::solver::*;
+pub use self::solve::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::implementations::{HashMapTable, YasaiPosition};
-    use crate::solve;
+    use super::implementations::{HashMapTable, YasaiPosition};
+    use super::solve;
     use shogi_core::PartialPosition;
     use shogi_usi_parser::FromUsi;
     use std::time::Duration;
