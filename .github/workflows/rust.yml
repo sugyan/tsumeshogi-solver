@@ -22,6 +22,8 @@ jobs:
       run: cargo test --verbose
     - name: Run tests for dfpn
       run: cargo test --verbose -p dfpn --lib
+    - name: Run tests for solver
+      run: cargo test --verbose -p solver --lib
 
   clippy_check:
 
@@ -42,3 +44,9 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         name: clippy-dfpn
         args: --all-features --manifest-path ./dfpn/Cargo.toml
+    - name: Run clippy for solver
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        name: clippy-solver
+        args: --all-features --manifest-path ./solver/Cargo.toml
