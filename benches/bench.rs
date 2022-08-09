@@ -4,7 +4,7 @@ use dfpn::search::Search;
 use dfpn::{Node, Position, Table};
 use shogi_core::PartialPosition;
 use shogi_usi_parser::FromUsi;
-use tsumeshogi_solver::solver::implementations::{HashMapTable, VecTable, YasaiPosition};
+use solver::implementations::{HashMapTable, VecTable, YasaiPosition};
 
 struct DefaultSearcher<P, T> {
     pub pos: P,
