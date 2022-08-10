@@ -2,7 +2,7 @@ use clap::{ArgEnum, Parser};
 use encoding_rs::SHIFT_JIS;
 use shogi_core::{Color, Move, PartialPosition, PieceKind, Position, Square, ToUsi};
 use shogi_kifu_converter::converter::ToCsa;
-use shogi_kifu_converter::error::{ConvertError, CoreConvertError, NormalizerError};
+use shogi_kifu_converter::error::{ConvertError, NormalizeError, ParseError};
 use shogi_kifu_converter::jkf::JsonKifuFormat;
 use shogi_kifu_converter::parser::{parse_csa_str, parse_kif_str};
 use shogi_official_kifu::display_single_move_kansuji;
@@ -16,39 +16,29 @@ use std::time::{Duration, Instant};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-enum ParseError {
-    #[error(transparent)]
-    Usi(#[from] shogi_usi_parser::Error),
-    #[error(transparent)]
-    Utf8(#[from] std::str::Utf8Error),
+enum InputError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
+    Utf8(#[from] std::str::Utf8Error),
+    #[error(transparent)]
+    Usi(#[from] shogi_usi_parser::Error),
+    #[error(transparent)]
     Convert(#[from] ConvertError),
     #[error(transparent)]
-    Normalize(#[from] NormalizerError),
+    Normalize(#[from] NormalizeError),
     #[error(transparent)]
-    CoreConvert(#[from] CoreConvertError),
-    #[error(transparent)]
-    KifError(#[from] KifError),
-}
-
-#[derive(Error, Debug)]
-enum KifError {
-    #[error("Input is not SHIFT-JIS")]
-    EncodingNotShiftJISError,
-    #[error("Decode error")]
-    DecodingError,
+    Parse(#[from] ParseError),
 }
 
 trait Parse {
-    fn parse(&self, input: &[u8]) -> Result<PartialPosition, ParseError>;
+    fn parse(&self, input: &[u8]) -> Result<PartialPosition, InputError>;
 }
 
 struct CsaParser;
 
 impl Parse for CsaParser {
-    fn parse(&self, input: &[u8]) -> Result<PartialPosition, ParseError> {
+    fn parse(&self, input: &[u8]) -> Result<PartialPosition, InputError> {
         let jkf = parse_csa_str(std::str::from_utf8(input)?)?;
         let pos = Position::try_from(&jkf)?;
         Ok(pos.initial_position().clone())
@@ -58,13 +48,10 @@ impl Parse for CsaParser {
 struct KifParser;
 
 impl Parse for KifParser {
-    fn parse(&self, input: &[u8]) -> Result<PartialPosition, ParseError> {
-        let (cow, encoding_used, had_errors) = SHIFT_JIS.decode(input);
-        if encoding_used != SHIFT_JIS {
-            return Err(ParseError::from(KifError::EncodingNotShiftJISError));
-        }
+    fn parse(&self, input: &[u8]) -> Result<PartialPosition, InputError> {
+        let (cow, _, had_errors) = SHIFT_JIS.decode(input);
         if had_errors {
-            return Err(ParseError::from(KifError::DecodingError));
+            return Err(InputError::from(ParseError::Decode));
         }
         let jkf = parse_kif_str(&cow)?;
         let pos = Position::try_from(&jkf)?;
@@ -107,7 +94,7 @@ enum OutputFormat {
     Kifu,
 }
 
-fn main() -> Result<(), ParseError> {
+fn main() -> Result<(), InputError> {
     let args = Args::parse();
     match args.input_format {
         InputFormat::Sfen => run_sfen(&args),
@@ -116,7 +103,7 @@ fn main() -> Result<(), ParseError> {
     }
 }
 
-fn run_sfen(args: &Args) -> Result<(), ParseError> {
+fn run_sfen(args: &Args) -> Result<(), InputError> {
     if args.inputs == ["-"] {
         let stdin = std::io::stdin();
         for line in stdin.lock().lines() {
@@ -134,7 +121,7 @@ fn run_sfen(args: &Args) -> Result<(), ParseError> {
     Ok(())
 }
 
-fn run_parse<T>(parser: T, args: &Args) -> Result<(), ParseError>
+fn run_parse<T>(parser: T, args: &Args) -> Result<(), InputError>
 where
     T: Parse,
 {
@@ -154,7 +141,7 @@ where
     Ok(())
 }
 
-fn run(pos: &PartialPosition, input: &str, args: &Args) -> Result<(), ParseError> {
+fn run(pos: &PartialPosition, input: &str, args: &Args) -> Result<(), InputError> {
     print!("{}: ", input);
     if args.verbose {
         let jkf = JsonKifuFormat::try_from(&Position::arbitrary_position(pos.clone()))?;

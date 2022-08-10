@@ -13,7 +13,7 @@ encoding_rs = "0.8.31"
 shogi_core = "0.1.5"
 shogi_official_kifu = "0.1.1"
 shogi_usi_parser = "0.1.0"
-shogi-kifu-converter = "0.2.0"
+shogi-kifu-converter = "0.2.1"
 thiserror = "1.0"
 
 [profile.release]

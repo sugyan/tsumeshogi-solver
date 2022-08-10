@@ -347,9 +347,9 @@ dependencies = [
 
 [[package]]
 name = "shogi-kifu-converter"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "156841142ea77006cbcef57ec982e7817b492e5233beb5414e3299ae6790fb96"
+checksum = "dc948f12db7b01889d7e5c1937265e276a976b22451529c10126f0f4a4049221"
 dependencies = [
  "csa",
  "encoding_rs",
